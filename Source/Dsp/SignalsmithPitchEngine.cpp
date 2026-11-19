@@ -4,7 +4,12 @@
 #include <cmath>
 #include <vector>
 
-SignalsmithPitchEngine::SignalsmithPitchEngine() = default;
+SignalsmithPitchEngine::SignalsmithPitchEngine()
+#if VOICEMORPH_HAS_SIGNALSMITH
+    : stretch (0x564d4f52L)
+#endif
+{
+}
 SignalsmithPitchEngine::~SignalsmithPitchEngine() = default;
 
 bool SignalsmithPitchEngine::prepare (int channels, double sampleRate, int maxBlockSize,
