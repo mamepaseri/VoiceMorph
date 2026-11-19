@@ -258,16 +258,18 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     configureRotary (deEssIntensitySlider, "%");
     configureRotary (deEssMixSlider, "%");
 
-    voiceModeSlider.setRange (0.0, 1.0, 0.5);
+    // AudioParameterChoice exposes the three choices as 0, 1, and 2.
+    // Keep the slider, its text display, and typed values on that same scale.
+    voiceModeSlider.setRange (0.0, 2.0, 1.0);
     voiceModeSlider.textFromValueFunction = [] (double v)
     {
-        const int index = juce::jlimit (0, 2, static_cast<int> (std::round (v * 2.0)));
+        const int index = juce::jlimit (0, 2, static_cast<int> (std::round (v)));
         return juce::StringArray { "NATURAL", "BALANCED", "PRECISE" }[index];
     };
     voiceModeSlider.valueFromTextFunction = [] (const juce::String& s)
     {
-        if (s.containsIgnoreCase ("PRECISE")) return 1.0;
-        if (s.containsIgnoreCase ("BALANCED")) return 0.5;
+        if (s.containsIgnoreCase ("PRECISE")) return 2.0;
+        if (s.containsIgnoreCase ("BALANCED")) return 1.0;
         return 0.0;
     };
 
