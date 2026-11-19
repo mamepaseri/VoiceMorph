@@ -584,6 +584,15 @@ int main()
     ok &= require (std::abs (dryOnly.output - 0.40f) < 0.001f,
                    "0% Voice Mix smoothly settles on the dry reference without changing its level");
 
+    recombiner.reset();
+    recombiner.setLatencySamples (0);
+    const auto fullyWet = recombiner.processSample (0.70f, 0.0f, 0.40f, 100.0f);
+    ok &= require (std::abs (fullyWet.output - 0.70f) < 1.0e-6f,
+                   "100% Voice Mix routes only the transformed stem when no residual is requested");
+    const auto residualWet = recombiner.processSample (0.70f, 0.10f, 0.40f, 100.0f);
+    ok &= require (std::abs (residualWet.output - 0.80f) < 1.0e-6f,
+                   "100% Voice Mix adds only the explicitly supplied residual, never the dry reference");
+
     // Exercise the original pitch-synchronous overlap-add stage on a stable
     // harmonic input. The engine reports its fixed 46 ms-class look-ahead; the
     // first 150 ms are excluded from F0 measurement to avoid startup transients.
