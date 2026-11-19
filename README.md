@@ -4,9 +4,13 @@ VoiceMorph is an experimental Windows x64 VST3 voice-transformation plug-in. It 
 
 ## Download
 
-Get the Windows x64 installer from the [VoiceMorph 0.8.1 GitHub Release](https://github.com/mamepaseri/VoiceMorph/releases/tag/v0.8.1). Download `VoiceMorph-Setup-x64-0.8.1.zip`, extract it, then run the included installer. The installer offers per-user installation by default; close your DAW before installing or uninstalling, then rescan its VST3 plug-ins.
+Get the latest Windows x64 installer from [GitHub Releases](https://github.com/mamepaseri/VoiceMorph/releases/latest). Download the `VoiceMorph-Setup-x64-<version>.zip` asset, extract it, then run the included installer. The installer offers per-user installation by default; close your DAW before installing or uninstalling, then rescan its VST3 plug-ins.
 
 The installer is unsigned, so Windows SmartScreen may show an unfamiliar-app warning. The installer workflow checks the VST3 payload and performs a silent install/uninstall smoke test.
+
+## Automatic Windows releases
+
+After a successful Windows x64 VST3 build on `main`, the packaging workflow validates and smoke-tests the installer, then publishes a versioned ZIP to GitHub Releases. The release version comes from `project(VERSION ...)` in `CMakeLists.txt`. Existing tags are never overwritten; increment the project version before merging work intended for a new public release. A package-only or manual Actions run cannot publish unless it refers to a successful main-branch Windows VST3 build.
 
 ## 0.8.1 changes
 
