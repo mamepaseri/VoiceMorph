@@ -19,4 +19,11 @@ namespace voice_morph::parameter_mapping
             return 0.0;
         return static_cast<double> (std::clamp (index, 0, choiceCount - 1));
     }
+
+    inline double rotaryAngleFromProportion (double proportion, double startAngle, double endAngle) noexcept
+    {
+        if (! std::isfinite (proportion) || ! std::isfinite (startAngle) || ! std::isfinite (endAngle))
+            return startAngle;
+        return startAngle + std::clamp (proportion, 0.0, 1.0) * (endAngle - startAngle);
+    }
 }
