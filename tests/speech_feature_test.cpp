@@ -5,6 +5,7 @@
 #include "../Source/Dsp/PitchSynchronousShifter.h"
 #include "../Source/Dsp/SignalsmithPitchEngine.h"
 #include "../Source/Dsp/SignalsmithHybridVoiceEngine.h"
+#include "../Source/ParameterMapping.h"
 
 #include <algorithm>
 #include <cmath>
@@ -125,6 +126,12 @@ namespace
 int main()
 {
     bool ok = true;
+    for (int choice = 0; choice < 3; ++choice)
+    {
+        const double sliderValue = voice_morph::parameter_mapping::choiceIndexToValue (choice, 3);
+        ok &= require (voice_morph::parameter_mapping::choiceValueToIndex (sliderValue, 3) == choice,
+                       "voice mode slider value round-trips to choice index " + std::to_string (choice));
+    }
     SpeechFeatureAnalyzer analyzer;
     analyzer.prepare (sampleRate);
 
