@@ -508,7 +508,7 @@ void VoiceMorphAudioProcessorEditor::showAdvancedSettings()
         lookAndFeel, deEssRangeLabel, deEssRangeBox, deEssLabel, deEssIntensitySlider,
         deEssMixLabel, deEssMixSlider, qualityLabel, qualityBox, deEssBypassButton);
     panelContent->setSize (500, 340);
-    advancedCallout = juce::CallOutBox::launchAsynchronously (
+    advancedCallout = &juce::CallOutBox::launchAsynchronously (
         std::move (panelContent), advancedButton.getScreenBounds(), nullptr);
 }
 
