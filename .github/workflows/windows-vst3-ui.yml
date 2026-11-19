@@ -11,7 +11,7 @@ permissions:
 jobs:
   windows-vst3:
     name: VS2022 x64 VST3 (Signalsmith ${{ matrix.signalsmith }})
-    runs-on: windows-latest
+    runs-on: windows-2022
     strategy:
       fail-fast: false
       matrix:
