@@ -124,6 +124,55 @@ namespace
     }
 }
 
+#if VOICEMORPH_HAS_SIGNALSMITH
+    struct SignalsmithToneRun
+    {
+        bool success = false;
+        int inputLatency = 0;
+        int outputLatency = 0;
+        std::vector<float> output;
+    };
+
+    SignalsmithToneRun renderSignalsmithTone()
+    {
+        SignalsmithToneRun result;
+        SignalsmithPitchEngine engine;
+        constexpr int blockSize = 256;
+        const int totalSamples = static_cast<int> (sampleRate * 1.2);
+        if (! engine.prepare (1, sampleRate, blockSize))
+            return result;
+
+        result.inputLatency = engine.inputLatencySamples();
+        result.outputLatency = engine.outputLatencySamples();
+        result.output.resize (static_cast<std::size_t> (totalSamples), 0.0f);
+        engine.setParameters (7.0f, 0.0f, 132.0f);
+
+        std::array<float, blockSize> inputBlock {}, outputBlock {};
+        std::array<const float*, 1> inputPointers { inputBlock.data() };
+        std::array<float*, 1> outputPointers { outputBlock.data() };
+        for (int offset = 0; offset < totalSamples; )
+        {
+            const int count = std::min (blockSize, totalSamples - offset);
+            for (int i = 0; i < count; ++i)
+            {
+                const int absolute = offset + i;
+                const double time = static_cast<double> (absolute) / sampleRate;
+                inputBlock[static_cast<std::size_t> (i)] = static_cast<float> (
+                    0.22 * std::sin (2.0 * pi * 132.0 * time)
+                    + 0.08 * std::sin (2.0 * pi * 264.0 * time)
+                    + 0.03 * std::sin (2.0 * pi * 396.0 * time));
+            }
+            if (! engine.process (inputPointers.data(), outputPointers.data(), 1, count))
+                return result;
+            std::copy_n (outputBlock.data(), count, result.output.data() + offset);
+            offset += count;
+        }
+
+        result.success = true;
+        return result;
+    }
+#endif
+
 int main()
 {
     bool ok = true;
@@ -702,6 +751,43 @@ int main()
                                                     - facadeInput[static_cast<std::size_t> (i)]));
     ok &= require (facadeError < 1.0e-7f && ! hybridSignalsmith.wasLastTransformSuccessful(),
                    "hybrid Signalsmith facade keeps exact dry audio when the optional engine is disabled");
+#else
+    const auto shiftedA = renderSignalsmithTone();
+    const auto shiftedB = renderSignalsmithTone();
+    ok &= require (shiftedA.success && shiftedB.success
+                   && shiftedA.inputLatency > 0 && shiftedA.outputLatency > 0,
+                   "Signalsmith reports its two measured latency components for the live configuration");
+    const bool finiteOutput = shiftedA.success
+        && std::all_of (shiftedA.output.begin(), shiftedA.output.end(),
+                        [] (float sample) { return std::isfinite (sample); });
+    ok &= require (finiteOutput, "Signalsmith produces finite output for a deterministic harmonic voice");
+    const bool deterministicOutput = shiftedA.success && shiftedB.success
+        && shiftedA.output.size() == shiftedB.output.size()
+        && std::equal (shiftedA.output.begin(), shiftedA.output.end(), shiftedB.output.begin(),
+                       [] (float a, float b) { return std::abs (a - b) < 1.0e-7f; });
+    ok &= require (deterministicOutput,
+                   "Signalsmith output repeats deterministically for the same synthetic voice and settings");
+
+    if (finiteOutput)
+    {
+        const int measureStart = static_cast<int> (sampleRate * 0.25);
+        const int measureEnd = static_cast<int> (sampleRate * 0.95);
+        int crossings = 0;
+        float previous = shiftedA.output[static_cast<std::size_t> (measureStart - 1)];
+        for (int n = measureStart; n < measureEnd; ++n)
+        {
+            const float current = shiftedA.output[static_cast<std::size_t> (n)];
+            if (previous <= 0.0f && current > 0.0f)
+                ++crossings;
+            previous = current;
+        }
+        const float duration = static_cast<float> (measureEnd - measureStart) / static_cast<float> (sampleRate);
+        const float measuredPitch = static_cast<float> (crossings) / duration;
+        const float expectedPitch = 132.0f * std::exp2 (7.0f / 12.0f);
+        ok &= require (std::abs (measuredPitch - expectedPitch) < 6.0f,
+                       "Signalsmith shifts a 132 Hz voiced tone by +7 semitones (measured "
+                       + std::to_string (measuredPitch) + " Hz)");
+    }
 #endif
 
     PitchSynchronousShifter psola;

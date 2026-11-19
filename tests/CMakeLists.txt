@@ -12,6 +12,24 @@ add_executable(speech_feature_test
     ../Source/Dsp/SignalsmithPitchEngine.cpp)
 target_compile_features(speech_feature_test PRIVATE cxx_std_17)
 
+option(VOICEMORPH_TEST_SIGNALSMITH "Fetch Signalsmith and test its pitch-shift path" OFF)
+if (VOICEMORPH_TEST_SIGNALSMITH)
+    include(FetchContent)
+    FetchContent_Declare(signalsmith_stretch
+        GIT_REPOSITORY https://github.com/Signalsmith-Audio/signalsmith-stretch.git
+        GIT_TAG 57b93f4e9206a089a45387eaa39bdc9f310d3308
+        GIT_SHALLOW FALSE
+        GIT_SUBMODULES_RECURSE TRUE)
+    FetchContent_MakeAvailable(signalsmith_stretch)
+    if (NOT TARGET signalsmith-stretch)
+        message(FATAL_ERROR "Signalsmith Stretch did not create the expected target.")
+    endif()
+    target_link_libraries(speech_feature_test PRIVATE signalsmith-stretch)
+    target_compile_definitions(speech_feature_test PRIVATE VOICEMORPH_HAS_SIGNALSMITH=1)
+else()
+    target_compile_definitions(speech_feature_test PRIVATE VOICEMORPH_HAS_SIGNALSMITH=0)
+endif()
+
 if (MSVC)
     target_compile_options(speech_feature_test PRIVATE /W4 /permissive-)
 else()

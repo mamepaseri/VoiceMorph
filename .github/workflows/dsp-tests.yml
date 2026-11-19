@@ -22,6 +22,19 @@ jobs:
       - name: Test
         run: ctest --test-dir build/tests --output-on-failure
 
+  linux-signalsmith:
+    name: Linux Signalsmith ON DSP quality tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S tests -B build/tests-signalsmith -DCMAKE_BUILD_TYPE=Release -DVOICEMORPH_TEST_SIGNALSMITH=ON
+      - name: Build
+        run: cmake --build build/tests-signalsmith --parallel 2
+      - name: Test
+        run: ctest --test-dir build/tests-signalsmith --output-on-failure
+
   linux-sanitizers:
     name: AddressSanitizer + UndefinedBehaviorSanitizer
     runs-on: ubuntu-latest
