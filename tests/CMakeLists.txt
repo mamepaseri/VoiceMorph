@@ -26,6 +26,11 @@ if (VOICEMORPH_TEST_SIGNALSMITH)
     endif()
     target_link_libraries(speech_feature_test PRIVATE signalsmith-stretch)
     target_compile_definitions(speech_feature_test PRIVATE VOICEMORPH_HAS_SIGNALSMITH=1)
+    if (NOT MSVC)
+        # The pinned upstream headers trigger -Wshadow; the OFF test job keeps
+        # strict warning-as-error coverage for VoiceMorph's own source.
+        target_compile_options(speech_feature_test PRIVATE -Wno-shadow)
+    endif()
 else()
     target_compile_definitions(speech_feature_test PRIVATE VOICEMORPH_HAS_SIGNALSMITH=0)
 endif()
