@@ -89,6 +89,37 @@ jobs:
           }
           Get-FileHash -Algorithm SHA256 -LiteralPath $setup | Format-List | Out-String | Write-Host
 
+      - name: Smoke-test installer payload and uninstaller
+        shell: pwsh
+        run: |
+          $testVst3 = Join-Path $env:RUNNER_TEMP "VoiceMorphInstallerSmoke\VoiceMorph.vst3"
+          & $setup /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/DIR=$testVst3"
+          if ($LASTEXITCODE -ne 0) { throw "Silent installer smoke test failed with exit code $LASTEXITCODE." }
+
+          $expectedFiles = @(Get-ChildItem -LiteralPath "installer\payload\VoiceMorph.vst3" -File -Recurse)
+          $installedFiles = @(Get-ChildItem -LiteralPath $testVst3 -File -Recurse)
+          if ($expectedFiles.Count -ne $installedFiles.Count) {
+            throw "Installed bundle file count does not match the staged VST3 payload."
+          }
+          foreach ($file in $expectedFiles) {
+            $relative = $file.FullName.Substring((Resolve-Path "installer\payload\VoiceMorph.vst3").Path.Length).TrimStart("\\")
+            $installed = Join-Path $testVst3 $relative
+            if (-not (Test-Path -LiteralPath $installed -PathType Leaf)) {
+              throw "Installer payload is missing: $relative"
+            }
+            $expectedHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $file.FullName).Hash
+            $installedHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $installed).Hash
+            if ($expectedHash -ne $installedHash) { throw "Installer payload differs: $relative" }
+          }
+
+          $uninstaller = Join-Path $env:LOCALAPPDATA "VoiceMorph\Uninstall\unins000.exe"
+          if (-not (Test-Path -LiteralPath $uninstaller -PathType Leaf)) {
+            throw "Installer did not create its uninstaller."
+          }
+          & $uninstaller /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+          if ($LASTEXITCODE -ne 0) { throw "Silent uninstaller smoke test failed with exit code $LASTEXITCODE." }
+          if (Test-Path -LiteralPath $testVst3) { throw "Uninstaller left the test VST3 bundle behind." }
+
       - name: Upload versioned installer
         uses: actions/upload-artifact@v4
         with:
