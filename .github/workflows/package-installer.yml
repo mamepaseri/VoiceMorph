@@ -92,6 +92,7 @@ jobs:
       - name: Smoke-test installer payload and uninstaller
         shell: pwsh
         run: |
+          $setup = "dist\VoiceMorph-Setup-x64-$env:APP_VERSION.exe"
           $testVst3 = Join-Path $env:RUNNER_TEMP "VoiceMorphInstallerSmoke\VoiceMorph.vst3"
           & $setup /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/DIR=$testVst3"
           if ($LASTEXITCODE -ne 0) { throw "Silent installer smoke test failed with exit code $LASTEXITCODE." }
