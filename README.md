@@ -10,7 +10,7 @@ The installer is unsigned, so Windows SmartScreen may show an unfamiliar-app war
 
 ## Automatic Windows releases
 
-After a successful Windows x64 VST3 build on `main`, the packaging workflow validates and smoke-tests the installer, then publishes a versioned ZIP to GitHub Releases. The release version comes from `project(VERSION ...)` in `CMakeLists.txt`. Existing tags are never overwritten; increment the project version before merging work intended for a new public release. A package-only or manual Actions run cannot publish unless it refers to a successful main-branch Windows VST3 build.
+After a successful Windows x64 VST3 build on `main`, the packaging workflow validates and smoke-tests the installer, then publishes one versioned ZIP to GitHub Releases. The release version comes from `project(VERSION ...)` in `CMakeLists.txt`. Existing tags are never overwritten, and repeat builds for an already published version do not create duplicate downloadable artifacts. Increment the project version before merging work intended for a new public release. A package-only or manual Actions run cannot publish unless it refers to a successful main-branch Windows VST3 build.
 
 ## 0.8.1 changes
 
