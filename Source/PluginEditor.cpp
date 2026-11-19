@@ -91,10 +91,9 @@ VoiceMorphLookAndFeel::VoiceMorphLookAndFeel()
 }
 
 void VoiceMorphLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height,
-                                               float sliderPos, float startAngle, float endAngle,
+                                               float, float startAngle, float endAngle,
                                                juce::Slider& slider)
 {
-    juce::ignoreUnused (slider);
     const float side = static_cast<float> (juce::jmin (width, height));
     const float cx = x + width * 0.5f;
     const float cy = y + height * 0.5f;
@@ -140,7 +139,9 @@ void VoiceMorphLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, i
     }
 
     // Cyan active arc only. No warm/orange accents.
-    const float angle = startAngle + sliderPos * (endAngle - startAngle);
+    const float proportion = static_cast<float> (slider.valueToProportionOfLength (slider.getValue()));
+    const float angle = static_cast<float> (voice_morph::parameter_mapping::rotaryAngleFromProportion (
+        proportion, startAngle, endAngle));
     juce::Path arc;
     arc.addCentredArc (cx, cy, outerR * 0.80f, outerR * 0.80f, 0.0f,
                        startAngle, angle, true);
@@ -370,6 +371,8 @@ VoiceMorphAudioProcessorEditor::~VoiceMorphAudioProcessorEditor()
 void VoiceMorphAudioProcessorEditor::configureRotary (juce::Slider& slider, const juce::String& suffix)
 {
     slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+    slider.setRotaryParameters (juce::MathConstants<float>::pi * 1.25f,
+                                juce::MathConstants<float>::pi * 2.75f, true);
     slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 92, 22);
     slider.setTextValueSuffix (suffix);
     slider.setMouseDragSensitivity (170);
@@ -379,7 +382,7 @@ void VoiceMorphAudioProcessorEditor::configureRotary (juce::Slider& slider, cons
 void VoiceMorphAudioProcessorEditor::configureFader (juce::Slider& slider)
 {
     slider.setSliderStyle (juce::Slider::LinearVertical);
-    slider.setTextBoxStyle (juce::Slider::TextBoxAbove, false, 74, 22);
+    slider.setTextBoxStyle (juce::Slider::TextBoxAbove, false, 64, 22);
     slider.setTextValueSuffix (" dB");
     slider.setLookAndFeel (&lookAndFeel);
 }
@@ -446,14 +449,15 @@ void VoiceMorphAudioProcessorEditor::resized()
     bypassButton.setBounds (header.removeFromRight (102).reduced (2, 8));
 
     r.removeFromTop (10);
-    auto levels = r.removeFromRight (180);
+    const int gainPanelWidth = juce::jlimit (148, 168, static_cast<int> (std::round (getWidth() * 0.14f)));
+    auto levels = r.removeFromRight (gainPanelWidth);
     r.removeFromRight (10);
     auto inputArea = levels.removeFromLeft (levels.getWidth() / 2);
     auto outputArea = levels;
     inputLabel.setBounds (inputArea.removeFromTop (24));
-    inputGainSlider.setBounds (inputArea.reduced (8, 4));
+    inputGainSlider.setBounds (inputArea.reduced (4, 4));
     outputLabel.setBounds (outputArea.removeFromTop (24));
-    outputGainSlider.setBounds (outputArea.reduced (8, 4));
+    outputGainSlider.setBounds (outputArea.reduced (4, 4));
 
     auto main = r;
     auto top = main.removeFromTop (230);
