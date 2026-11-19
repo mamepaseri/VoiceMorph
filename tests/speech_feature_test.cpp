@@ -13,6 +13,7 @@
 #include <iostream>
 #include <random>
 #include <string>
+#include <utility>
 
 namespace
 {
@@ -394,6 +395,67 @@ int main()
     ok &= require (consonantSwitchOffEnergy > breathProtectedEnergy * 100.0,
                    "Consonant Preserve switch independently bypasses the aperiodic protection gate");
 
+    // A 100% wet mix must not retain unvoiced input unless its preservation
+    // control is enabled. The deterministic noise exercises the unvoiced path.
+    std::array<float, 1024> syntheticBreath {};
+    std::mt19937 residualRandom (54321);
+    std::uniform_real_distribution<float> residualNoise (-0.1f, 0.1f);
+    double syntheticBreathEnergy = 0.0;
+    for (auto& sample : syntheticBreath)
+    {
+        sample = residualNoise (residualRandom);
+        syntheticBreathEnergy += static_cast<double> (sample) * sample;
+    }
+    const auto processBreathResidual = [&] (float breathPreservePercent)
+    {
+        HybridVoicePath path;
+        if (! path.prepare (1, sampleRate, 128, 0, 0))
+            return std::pair<double, double> { -1.0, -1.0 };
+        FixedDelayTransform identityTransform (0, 1);
+        std::array<float, 128> blockIn {}, blockOut {}, noPitch {}, unvoiced {}, aperiodic {};
+        unvoiced.fill (0.0f);
+        aperiodic.fill (1.0f);
+        std::array<const float*, 1> inPointers { blockIn.data() };
+        std::array<float*, 1> outPointers { blockOut.data() };
+        double outputEnergy = 0.0;
+        for (int offset = 0; offset < 1024; offset += 128)
+        {
+            for (int i = 0; i < 128; ++i)
+                blockIn[static_cast<std::size_t> (i)] = syntheticBreath[static_cast<std::size_t> (offset + i)];
+            if (! path.processBlock (inPointers.data(), outPointers.data(), 1, 128,
+                                     noPitch.data(), unvoiced.data(), aperiodic.data(), 100.0f,
+                                     fixedDelayTransform, &identityTransform,
+                                     breathPreservePercent, true, false))
+                return std::pair<double, double> { -1.0, -1.0 };
+            for (float sample : blockOut)
+                outputEnergy += static_cast<double> (sample) * sample;
+        }
+        return std::pair<double, double> { outputEnergy, syntheticBreathEnergy };
+    };
+    const auto noBreathResidual = processBreathResidual (0.0f);
+    const auto fullBreathResidual = processBreathResidual (100.0f);
+    ok &= require (noBreathResidual.first >= 0.0 && noBreathResidual.first < 1.0e-12,
+                   "100% Voice Mix removes unvoiced residual when Breath Preserve is zero");
+    ok &= require (fullBreathResidual.first > fullBreathResidual.second * 0.99
+                   && fullBreathResidual.first < fullBreathResidual.second * 1.01,
+                   "Breath Preserve at 100% passes the intentional unvoiced residual at 100% Voice Mix");
+
+    // A transient remains controlled independently from the breath path.
+    HybridVoicePath transientPath;
+    ok &= require (transientPath.prepare (1, sampleRate, 128, 0, 0),
+                   "transient residual regression path prepares");
+    FixedDelayTransform transientTransform (0, 1);
+    std::array<float, 128> transientInput {}, transientOutput {}, transientPitch {}, transientVoice {}, transientAperiodic {};
+    transientInput[64] = 0.5f;
+    std::array<const float*, 1> transientIn { transientInput.data() };
+    std::array<float*, 1> transientOut { transientOutput.data() };
+    ok &= require (transientPath.processBlock (transientIn.data(), transientOut.data(), 1, 128,
+                    transientPitch.data(), transientVoice.data(), transientAperiodic.data(), 100.0f,
+                    fixedDelayTransform, &transientTransform, 0.0f, false, true),
+                   "transient residual processes at full wet mix");
+    ok &= require (std::abs (transientOutput[64] - 0.5f) < 1.0e-6f,
+                   "Transient Preserve retains a detected plosive while breath preservation is zero");
+
     // Verify sample-accurate alignment of the transformed voiced path with
     // delayed residual and dry-reference paths. This models a transform whose
     // latency is measured by its engine; it does not guess Signalsmith latency.
@@ -441,7 +503,7 @@ int main()
         std::vector<float> (2048, 0.0f), std::vector<float> (2048, 0.0f) };
     std::vector<float> hybridPitch (2048, 132.0f);
     std::vector<float> hybridVoiced (2048, 1.0f);
-    std::vector<float> hybridAperiodic (2048, 0.05f);
+    std::vector<float> hybridAperiodic (2048, 1.0f);
     for (int n = 0; n < 2048; ++n)
     {
         const double t = static_cast<double> (n) / sampleRate;
@@ -464,7 +526,7 @@ int main()
         ok &= require (hybridPath.processBlock (inPointers.data(), outPointers.data(), 2, block,
                     hybridPitch.data() + hybridOffset, hybridVoiced.data() + hybridOffset,
                     hybridAperiodic.data() + hybridOffset, 100.0f,
-                    fixedDelayTransform, &mockTransform),
+                    fixedDelayTransform, &mockTransform, 100.0f, true, false),
                     "hybrid path accepts a variable-size streaming block");
         hybridOffset += block;
         ++hybridBlockIndex;

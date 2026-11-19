@@ -7,6 +7,7 @@ struct SplitSample
 {
     float periodic = 0.0f;
     float residual = 0.0f;
+    float transient = 0.0f;
 };
 
 // First-pass, one-period predictive split. For strongly periodic voiced audio,

@@ -128,5 +128,5 @@ SplitSample AdaptivePeriodicSplitter::processSample (float input,
     writeIndex = (writeIndex + 1) % delayBufferSize;
     samplesWritten = std::min (samplesWritten + 1, delayBufferSize);
 
-    return { periodic, residual };
+    return { periodic, residual, sampleTransient };
 }

@@ -101,13 +101,23 @@ bool HybridVoicePath::processBlock (const float* const* input,
         for (int sample = 0; sample < numSamples; ++sample)
         {
             const float f0 = pitchHz != nullptr ? pitchHz[sample] : 0.0f;
-            const float voiced = voiceConfidence != nullptr ? voiceConfidence[sample] : 0.0f;
-            const float aperiodic = aperiodicConfidence != nullptr ? aperiodicConfidence[sample] : 0.0f;
+            const float voicedRaw = voiceConfidence != nullptr ? voiceConfidence[sample] : 0.0f;
+            const float aperiodicRaw = aperiodicConfidence != nullptr ? aperiodicConfidence[sample] : 0.0f;
+            const float voiced = std::clamp (std::isfinite (voicedRaw) ? voicedRaw : 0.0f, 0.0f, 1.0f);
+            const float aperiodic = std::clamp (std::isfinite (aperiodicRaw) ? aperiodicRaw : 0.0f, 0.0f, 1.0f);
             const float aperiodicProtection = preserveConsonants ? breathPreserve * aperiodic : 0.0f;
-            const float splitConfidence = std::clamp (voiced * (1.0f - aperiodicProtection), 0.0f, 1.0f);
+            const float splitConfidence = voiced * (1.0f - aperiodicProtection);
             const auto stems = splitters[index].processSample (input[ch][sample], f0, splitConfidence, preserveTransients);
             periodic[static_cast<std::size_t> (sample)] = stems.periodic;
-            residual[static_cast<std::size_t> (sample)] = stems.residual;
+
+            // Only classified aperiodic detail and detected transients are sent
+            // around the pitch shifter. Breath Preserve controls the former;
+            // Transient Preserve controls the latter. This prevents voiced
+            // residual leakage from being added as an uncontrolled dry copy.
+            const float breathResidualGain = preserveConsonants ? breathPreserve * aperiodic : 0.0f;
+            const float transientResidualGain = preserveTransients ? stems.transient : 0.0f;
+            const float residualGain = std::clamp (std::max (breathResidualGain, transientResidualGain), 0.0f, 1.0f);
+            residual[static_cast<std::size_t> (sample)] = stems.residual * residualGain;
         }
     }
 
