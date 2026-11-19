@@ -309,7 +309,8 @@ void VoiceMorphLookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, i
                                                      static_cast<float> (width), static_cast<float> (height)).reduced (6.0f);
         const float cy = bounds.getCentreY();
         g.setColour (colours.muted.withAlpha (0.35f));
-        g.drawRoundedRectangle (bounds.withHeight (6.0f).withCentre (bounds.getCentreX(), cy), 3.0f, 1.0f);
+        g.drawRoundedRectangle (bounds.withHeight (6.0f).withCentre (
+                                    juce::Point<float> (bounds.getCentreX(), cy)), 3.0f, 1.0f);
         g.setColour (colours.accent);
         g.fillEllipse (sliderPos - 7.0f, cy - 7.0f, 14.0f, 14.0f);
     }
