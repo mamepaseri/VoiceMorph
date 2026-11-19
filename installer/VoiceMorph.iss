@@ -21,14 +21,10 @@ OutputBaseFilename=VoiceMorph-Setup-x64-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-CloseApplications=force
 RestartApplications=no
 
-[Dirs]
-Name: "{code:GetVst3Dir}"; Flags: uninsalwaysuninstall
-
 [Files]
-Source: "..\payload\VoiceMorph.vst3\*"; DestDir: "{code:GetVst3Dir}\VoiceMorph.vst3"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "payload\VoiceMorph.vst3\*"; DestDir: "{code:GetVst3Dir}\VoiceMorph.vst3"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Code]
 function GetVst3Dir(Param: String): String;
