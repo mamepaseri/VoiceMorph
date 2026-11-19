@@ -11,6 +11,62 @@ namespace
     const juce::Colour muted     { 0xffa6b2bd };
     const juce::Colour cyan      { 0xff39d6e5 };
     const juce::Colour cyanDim   { 0xff1e7782 };
+
+    class AdvancedSettingsPanel final : public juce::Component
+    {
+    public:
+        AdvancedSettingsPanel (VoiceMorphLookAndFeel& lookAndFeelIn,
+                               juce::Label& rangeLabelIn, juce::ComboBox& rangeBoxIn,
+                               juce::Label& mixLabelIn, juce::Slider& mixSliderIn,
+                               juce::Label& qualityLabelIn, juce::ComboBox& qualityBoxIn,
+                               juce::ToggleButton& bypassButtonIn)
+            : lookAndFeel (lookAndFeelIn), rangeLabel (rangeLabelIn), rangeBox (rangeBoxIn),
+              mixLabel (mixLabelIn), mixSlider (mixSliderIn), qualityLabel (qualityLabelIn),
+              qualityBox (qualityBoxIn), bypassButton (bypassButtonIn)
+        {
+            setLookAndFeel (&lookAndFeel);
+            addAndMakeVisible (rangeLabel);
+            addAndMakeVisible (rangeBox);
+            addAndMakeVisible (mixLabel);
+            addAndMakeVisible (mixSlider);
+            addAndMakeVisible (qualityLabel);
+            addAndMakeVisible (qualityBox);
+            addAndMakeVisible (bypassButton);
+        }
+
+        ~AdvancedSettingsPanel() override { setLookAndFeel (nullptr); }
+
+        void paint (juce::Graphics& g) override
+        {
+            g.fillAll (juce::Colour (0xff252b34));
+            g.setColour (juce::Colour (0xff65717e));
+            g.drawRoundedRectangle (getLocalBounds().toFloat().reduced (1.0f), 10.0f, 1.0f);
+        }
+
+        void resized() override
+        {
+            auto area = getLocalBounds().reduced (18);
+            auto left = area.removeFromLeft (area.getWidth() / 2).reduced (8, 4);
+            auto right = area.reduced (8, 4);
+            rangeLabel.setBounds (left.removeFromTop (22));
+            rangeBox.setBounds (left.removeFromTop (30));
+            qualityLabel.setBounds (left.removeFromTop (34));
+            qualityBox.setBounds (left.removeFromTop (30));
+            mixLabel.setBounds (right.removeFromTop (22));
+            mixSlider.setBounds (right.withSizeKeepingCentre (juce::jmin (150, right.getWidth()), juce::jmin (155, right.getHeight())));
+            bypassButton.setBounds (getLocalBounds().removeFromBottom (42).reduced (18, 4));
+        }
+
+    private:
+        VoiceMorphLookAndFeel& lookAndFeel;
+        juce::Label& rangeLabel;
+        juce::ComboBox& rangeBox;
+        juce::Label& mixLabel;
+        juce::Slider& mixSlider;
+        juce::Label& qualityLabel;
+        juce::ComboBox& qualityBox;
+        juce::ToggleButton& bypassButton;
+    };
 }
 
 VoiceMorphLookAndFeel::VoiceMorphLookAndFeel()
@@ -219,7 +275,7 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     addAndMakeVisible (presetBox);
 
     juce::Button* buttons[] = { &prevPresetButton, &nextPresetButton, &aButton, &bButton, &advancedButton,
-                                  &bypassButton, &consonantButton, &transientButton, &deEssBypassButton };
+                                  &bypassButton, &consonantButton, &transientButton, &voiceModeButton };
     for (auto* button : buttons)
         addAndMakeVisible (*button);
     prevPresetButton.onClick = [this] { presetBox.setSelectedItemIndex (juce::jmax (0, presetBox.getSelectedItemIndex() - 1)); };
@@ -228,7 +284,19 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     bButton.setClickingTogglesState (false);
     aButton.onClick = [this] { processor.switchAB (false); aButton.setColour (juce::TextButton::buttonColourId, cyanDim); bButton.setColour (juce::TextButton::buttonColourId, panel); };
     bButton.onClick = [this] { processor.switchAB (true); bButton.setColour (juce::TextButton::buttonColourId, cyanDim); aButton.setColour (juce::TextButton::buttonColourId, panel); };
-    advancedButton.onClick = [this] { advancedVisible = ! advancedVisible; resized(); repaint(); };
+    advancedButton.onClick = [this] { showAdvancedSettings(); };
+    voiceModeButton.onClick = [this]
+    {
+        if (auto* parameter = dynamic_cast<juce::RangedAudioParameter*> (processor.apvts.getParameter ("voiceMode")))
+        {
+            const auto* rawValue = processor.apvts.getRawParameterValue ("voiceMode");
+            const int current = voice_morph::parameter_mapping::choiceValueToIndex (
+                rawValue != nullptr ? rawValue->load (std::memory_order_relaxed) : 0.0f, 3);
+            parameter->setValueNotifyingHost (parameter->convertTo0to1 (
+                static_cast<float> ((current + 1) % 3)));
+        }
+        refreshVoiceModeButton();
+    };
 
     auto setupLabel = [this] (juce::Label& label, const juce::String& name)
     {
@@ -246,7 +314,7 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     setupLabel (deEssRangeLabel, "DE-ESSER RANGE"); setupLabel (qualityLabel, "PROCESSING");
 
     for (auto* slider : { &inputGainSlider, &outputGainSlider, &voiceMixSlider, &pitchSlider, &formantSlider,
-                          &trackingSlider, &breathSlider, &voiceModeSlider, &deEssIntensitySlider, &deEssMixSlider })
+                          &trackingSlider, &breathSlider, &deEssIntensitySlider })
         addAndMakeVisible (*slider);
     configureFader (inputGainSlider);
     configureFader (outputGainSlider);
@@ -255,29 +323,13 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     configureRotary (formantSlider, " st");
     configureRotary (trackingSlider, "%");
     configureRotary (breathSlider, "%");
-    configureRotary (voiceModeSlider);
     configureRotary (deEssIntensitySlider, "%");
     configureRotary (deEssMixSlider, "%");
 
-    // AudioParameterChoice exposes the three choices as 0, 1, and 2.
-    // Keep the slider, its text display, and typed values on that same scale.
-    voiceModeSlider.setRange (0.0, 2.0, 1.0);
-    voiceModeSlider.textFromValueFunction = [] (double v)
-    {
-        const int index = voice_morph::parameter_mapping::choiceValueToIndex (v, 3);
-        return juce::StringArray { "NATURAL", "BALANCED", "PRECISE" }[index];
-    };
-    voiceModeSlider.valueFromTextFunction = [] (const juce::String& s)
-    {
-        if (s.containsIgnoreCase ("PRECISE")) return voice_morph::parameter_mapping::choiceIndexToValue (2, 3);
-        if (s.containsIgnoreCase ("BALANCED")) return voice_morph::parameter_mapping::choiceIndexToValue (1, 3);
-        return voice_morph::parameter_mapping::choiceIndexToValue (0, 3);
-    };
+    refreshVoiceModeButton();
 
     deEssRangeBox.addItemList ({ "Low-Hi  1-4 kHz", "Mid-Hi  2-4 kHz", "High  5-10 kHz", "Hi-End  5-20 kHz" }, 1);
     qualityBox.addItemList ({ "LIVE", "BALANCED", "STUDIO" }, 1);
-    addAndMakeVisible (deEssRangeBox);
-    addAndMakeVisible (qualityBox);
     addAndMakeVisible (waveform);
 
     inputAttachment = std::make_unique<SliderAttachment> (processor.apvts, "inputGain", inputGainSlider);
@@ -287,7 +339,6 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     formantAttachment = std::make_unique<SliderAttachment> (processor.apvts, "formantSemitones", formantSlider);
     trackingAttachment = std::make_unique<SliderAttachment> (processor.apvts, "tracking", trackingSlider);
     breathAttachment = std::make_unique<SliderAttachment> (processor.apvts, "breathPreserve", breathSlider);
-    voiceModeAttachment = std::make_unique<SliderAttachment> (processor.apvts, "voiceMode", voiceModeSlider);
     deEssIntensityAttachment = std::make_unique<SliderAttachment> (processor.apvts, "deEssIntensity", deEssIntensitySlider);
     deEssMixAttachment = std::make_unique<SliderAttachment> (processor.apvts, "deEssMix", deEssMixSlider);
     bypassAttachment = std::make_unique<ButtonAttachment> (processor.apvts, "bypass", bypassButton);
@@ -303,6 +354,8 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
 VoiceMorphAudioProcessorEditor::~VoiceMorphAudioProcessorEditor()
 {
     stopTimer();
+    if (advancedCallout != nullptr)
+        advancedCallout->dismiss();
     setLookAndFeel (nullptr);
 }
 
@@ -345,11 +398,11 @@ void VoiceMorphAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillAll (bg);
     auto bounds = getLocalBounds().toFloat().reduced (8.0f);
     drawPanel (g, { bounds.getX(), bounds.getY(), bounds.getWidth(), 54.0f }, 10.0f);
-    drawPanel (g, { bounds.getX(), bounds.getY() + 62.0f, 150.0f, bounds.getHeight() - 62.0f }, 12.0f);
-    drawPanel (g, { bounds.getX() + 160.0f, bounds.getY() + 62.0f, bounds.getWidth() - 160.0f, bounds.getHeight() - 62.0f }, 12.0f);
+    drawPanel (g, { bounds.getX(), bounds.getY() + 62.0f, bounds.getWidth() - 202.0f, bounds.getHeight() - 62.0f }, 12.0f);
+    drawPanel (g, { bounds.getRight() - 192.0f, bounds.getY() + 62.0f, 192.0f, bounds.getHeight() - 62.0f }, 12.0f);
 
     g.setColour (edge.withAlpha (0.55f));
-    const float x = bounds.getX() + 174.0f;
+    const float x = bounds.getRight() - 198.0f;
     g.drawVerticalLine (static_cast<int> (x), bounds.getY() + 75.0f, bounds.getBottom() - 14.0f);
 
     g.setColour (muted);
@@ -358,7 +411,7 @@ void VoiceMorphAudioProcessorEditor::paint (juce::Graphics& g)
 
     if (! processor.isVoiceEngineConnected())
     {
-        auto tag = juce::Rectangle<float> (getWidth() - 238.0f, 78.0f, 205.0f, 22.0f);
+        auto tag = juce::Rectangle<float> (getWidth() - 438.0f, 78.0f, 205.0f, 22.0f);
         g.setColour (juce::Colour (0xff3f5964));
         g.fillRoundedRectangle (tag, 6.0f);
         g.setColour (cyan);
@@ -366,14 +419,6 @@ void VoiceMorphAudioProcessorEditor::paint (juce::Graphics& g)
         g.drawText ("PITCH / FORMANT ENGINE PENDING", tag.toNearestInt(), juce::Justification::centred);
     }
 
-    if (advancedVisible)
-    {
-        auto drawer = juce::Rectangle<float> (getWidth() - 360.0f, getHeight() - 90.0f, 330.0f, 52.0f);
-        g.setColour (juce::Colour (0xff1a222b));
-        g.fillRoundedRectangle (drawer, 8.0f);
-        g.setColour (cyan.withAlpha (0.75f));
-        g.drawRoundedRectangle (drawer, 8.0f, 1.0f);
-    }
 }
 
 void VoiceMorphAudioProcessorEditor::resized()
@@ -393,15 +438,15 @@ void VoiceMorphAudioProcessorEditor::resized()
     bypassButton.setBounds (header.removeFromRight (102).reduced (2, 8));
 
     r.removeFromTop (10);
-    auto left = r.removeFromLeft (150);
-    auto inputArea = left.removeFromTop (left.getHeight() / 2 - 4);
-    auto outputArea = left.removeFromBottom (left.getHeight());
+    auto levels = r.removeFromRight (180);
+    r.removeFromRight (10);
+    auto inputArea = levels.removeFromLeft (levels.getWidth() / 2);
+    auto outputArea = levels;
     inputLabel.setBounds (inputArea.removeFromTop (24));
-    inputGainSlider.setBounds (inputArea.reduced (24, 3));
+    inputGainSlider.setBounds (inputArea.reduced (8, 4));
     outputLabel.setBounds (outputArea.removeFromTop (24));
-    outputGainSlider.setBounds (outputArea.reduced (24, 3));
+    outputGainSlider.setBounds (outputArea.reduced (8, 4));
 
-    r.removeFromLeft (10);
     auto main = r;
     auto top = main.removeFromTop (230);
     const int half = top.getWidth() / 2;
@@ -410,7 +455,7 @@ void VoiceMorphAudioProcessorEditor::resized()
     pitchLabel.setBounds (pitchArea.removeFromTop (24));
     pitchSlider.setBounds (pitchArea.withSizeKeepingCentre (juce::jmin (205, pitchArea.getWidth()), juce::jmin (184, pitchArea.getHeight())));
     formantLabel.setBounds (formantArea.removeFromTop (24));
-    formantSlider.setBounds (formantArea.withSizeKeepingCentre (juce::jmin (205, formantArea.getWidth()), juce::jmin (184, formantArea.getHeight())));
+    formantSlider.setBounds (formantArea.withSizeKeepingCentre (juce::jmin (175, formantArea.getWidth()), juce::jmin (160, formantArea.getHeight())));
 
     main.removeFromTop (4);
     waveform.setBounds (main.removeFromTop (145).reduced (2, 0));
@@ -428,11 +473,13 @@ void VoiceMorphAudioProcessorEditor::resized()
         label.setBounds (area.removeFromTop (20));
         slider.setBounds (area.withSizeKeepingCentre (juce::jmin (116, area.getWidth()), juce::jmin (128, area.getHeight())));
     };
-    placeSmall (c1.reduced (4, 0), trackingLabel, trackingSlider);
-    placeSmall (c2.reduced (4, 0), breathLabel, breathSlider);
-    placeSmall (c3.reduced (4, 0), mixLabel, voiceMixSlider);
+    placeSmall (c1.reduced (4, 0), mixLabel, voiceMixSlider);
+    voiceMixSlider.setBounds (c1.reduced (4, 20).withSizeKeepingCentre (juce::jmin (96, c1.getWidth() - 8), 108));
+    placeSmall (c2.reduced (4, 0), trackingLabel, trackingSlider);
+    placeSmall (c3.reduced (4, 0), breathLabel, breathSlider);
     placeSmall (c4.reduced (4, 0), deEssLabel, deEssIntensitySlider);
-    placeSmall (c5.reduced (4, 0), voiceModeLabel, voiceModeSlider);
+    voiceModeLabel.setBounds (c5.reduced (4, 0).removeFromTop (20));
+    voiceModeButton.setBounds (c5.reduced (12, 22).withSizeKeepingCentre (juce::jmin (136, c5.getWidth() - 20), 42));
 
     main.removeFromTop (4);
     auto bottom = main.removeFromTop (52);
@@ -440,33 +487,38 @@ void VoiceMorphAudioProcessorEditor::resized()
     transientButton.setBounds (bottom.removeFromLeft (250).reduced (2, 4));
     advancedButton.setBounds (bottom.removeFromRight (100).reduced (2, 4));
 
-    if (advancedVisible)
+}
+
+void VoiceMorphAudioProcessorEditor::showAdvancedSettings()
+{
+    if (advancedCallout != nullptr)
     {
-        auto drawer = getLocalBounds().removeFromBottom (86).removeFromRight (360).reduced (18, 8);
-        deEssRangeLabel.setBounds (drawer.removeFromLeft (120).removeFromTop (18));
-        deEssRangeBox.setBounds (drawer.removeFromLeft (190).removeFromTop (26));
-        deEssMixLabel.setBounds (drawer.removeFromLeft (0));
-        deEssMixSlider.setBounds (drawer.removeFromLeft (0));
-        qualityLabel.setBounds (drawer.removeFromLeft (0));
-        qualityBox.setBounds (getLocalBounds().removeFromBottom (58).removeFromRight (130).reduced (5));
-        deEssBypassButton.setBounds (getLocalBounds().removeFromBottom (58).removeFromRight (130).translated (-138, 0).reduced (5));
+        advancedCallout->dismiss();
+        advancedCallout = nullptr;
+        return;
     }
-    else
-    {
-        deEssRangeLabel.setBounds (0, 0, 0, 0);
-        deEssRangeBox.setBounds (0, 0, 0, 0);
-        deEssMixLabel.setBounds (0, 0, 0, 0);
-        deEssMixSlider.setBounds (0, 0, 0, 0);
-        qualityLabel.setBounds (0, 0, 0, 0);
-        qualityBox.setBounds (0, 0, 0, 0);
-        deEssBypassButton.setBounds (0, 0, 0, 0);
-    }
+
+    auto panelContent = std::make_unique<AdvancedSettingsPanel> (
+        lookAndFeel, deEssRangeLabel, deEssRangeBox, deEssMixLabel, deEssMixSlider,
+        qualityLabel, qualityBox, deEssBypassButton);
+    panelContent->setSize (460, 260);
+    advancedCallout = juce::CallOutBox::launchAsynchronously (
+        std::move (panelContent), advancedButton.getScreenBounds(), nullptr);
+}
+
+void VoiceMorphAudioProcessorEditor::refreshVoiceModeButton()
+{
+    const auto* rawValue = processor.apvts.getRawParameterValue ("voiceMode");
+    const int index = voice_morph::parameter_mapping::choiceValueToIndex (
+        rawValue != nullptr ? rawValue->load (std::memory_order_relaxed) : 0.0f, 3);
+    voiceModeButton.setButtonText (juce::StringArray { "NATURAL", "BALANCED", "PRECISE" }[index]);
 }
 
 void VoiceMorphAudioProcessorEditor::timerCallback()
 {
     SpeechFeatures features;
     processor.getSpeechFeatures (features);
+    refreshVoiceModeButton();
 
     if (features.rms < 0.0006f)
     {

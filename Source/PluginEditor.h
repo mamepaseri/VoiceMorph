@@ -37,6 +37,8 @@ private:
     void configureFader (juce::Slider&);
     void addSectionLabel (juce::Label&, const juce::String&);
     void applyPreset (int index);
+    void showAdvancedSettings();
+    void refreshVoiceModeButton();
     void drawPanel (juce::Graphics&, juce::Rectangle<float>, float corner = 12.0f);
 
     VoiceMorphAudioProcessor& processor;
@@ -47,7 +49,9 @@ private:
     juce::TextButton prevPresetButton { "‹" }, nextPresetButton { "›" }, aButton { "A" }, bButton { "B" }, advancedButton { "ADVANCED" };
     juce::ToggleButton bypassButton { "BYPASS" }, consonantButton { "CONSONANT PRESERVE" }, transientButton { "TRANSIENT PRESERVE" }, deEssBypassButton { "DE-ESSER OFF" };
     juce::Slider inputGainSlider, outputGainSlider, voiceMixSlider, pitchSlider, formantSlider,
-                 trackingSlider, breathSlider, voiceModeSlider, deEssIntensitySlider, deEssMixSlider;
+                 trackingSlider, breathSlider, deEssIntensitySlider, deEssMixSlider;
+    juce::TextButton voiceModeButton { "NATURAL" };
+    juce::Component::SafePointer<juce::CallOutBox> advancedCallout;
     juce::Label inputLabel, outputLabel, pitchLabel, formantLabel, trackingLabel, breathLabel,
                mixLabel, voiceModeLabel, deEssLabel, deEssMixLabel, deEssRangeLabel, qualityLabel;
     WaveformMonitor waveform;
@@ -57,10 +61,9 @@ private:
     using ComboAttachment = VoiceMorphAudioProcessor::APVTS::ComboBoxAttachment;
     std::unique_ptr<SliderAttachment> inputAttachment, outputAttachment, voiceMixAttachment,
         pitchAttachment, formantAttachment, trackingAttachment, breathAttachment,
-        voiceModeAttachment, deEssIntensityAttachment, deEssMixAttachment;
+        deEssIntensityAttachment, deEssMixAttachment;
     std::unique_ptr<ButtonAttachment> bypassAttachment, consonantAttachment, transientAttachment, deEssBypassAttachment;
     std::unique_ptr<ComboAttachment> deEssRangeAttachment, qualityAttachment;
 
-    bool advancedVisible = false;
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VoiceMorphAudioProcessorEditor)
 };
