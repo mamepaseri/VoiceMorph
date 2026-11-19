@@ -1,4 +1,5 @@
 #include "PluginEditor.h"
+#include "ParameterMapping.h"
 
 namespace
 {
@@ -263,14 +264,14 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     voiceModeSlider.setRange (0.0, 2.0, 1.0);
     voiceModeSlider.textFromValueFunction = [] (double v)
     {
-        const int index = juce::jlimit (0, 2, static_cast<int> (std::round (v)));
+        const int index = voice_morph::parameter_mapping::choiceValueToIndex (v, 3);
         return juce::StringArray { "NATURAL", "BALANCED", "PRECISE" }[index];
     };
     voiceModeSlider.valueFromTextFunction = [] (const juce::String& s)
     {
-        if (s.containsIgnoreCase ("PRECISE")) return 2.0;
-        if (s.containsIgnoreCase ("BALANCED")) return 1.0;
-        return 0.0;
+        if (s.containsIgnoreCase ("PRECISE")) return voice_morph::parameter_mapping::choiceIndexToValue (2, 3);
+        if (s.containsIgnoreCase ("BALANCED")) return voice_morph::parameter_mapping::choiceIndexToValue (1, 3);
+        return voice_morph::parameter_mapping::choiceIndexToValue (0, 3);
     };
 
     deEssRangeBox.addItemList ({ "Low-Hi  1-4 kHz", "Mid-Hi  2-4 kHz", "High  5-10 kHz", "Hi-End  5-20 kHz" }, 1);
