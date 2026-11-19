@@ -144,9 +144,6 @@ void VoiceMorphLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
     if (down) { g.setColour (juce::Colours::black.withAlpha (0.13f)); g.fillRoundedRectangle (r, 7.0f); }
 }
 
-VoiceMorphAudioProcessorEditor::WaveformMonitor::WaveformMonitor (VoiceMorphAudioProcessor& p)
-    : processor (p) {}
-
 void VoiceMorphAudioProcessorEditor::WaveformMonitor::paint (juce::Graphics& g)
 {
     auto bounds = getLocalBounds().toFloat();
@@ -220,8 +217,9 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     presetBox.onChange = [this] { applyPreset (presetBox.getSelectedItemIndex()); };
     addAndMakeVisible (presetBox);
 
-    for (auto* button : { &prevPresetButton, &nextPresetButton, &aButton, &bButton, &advancedButton, &bypassButton,
-                          &consonantButton, &transientButton, &deEssBypassButton })
+    juce::Button* buttons[] = { &prevPresetButton, &nextPresetButton, &aButton, &bButton, &advancedButton,
+                                  &bypassButton, &consonantButton, &transientButton, &deEssBypassButton };
+    for (auto* button : buttons)
         addAndMakeVisible (*button);
     prevPresetButton.onClick = [this] { presetBox.setSelectedItemIndex (juce::jmax (0, presetBox.getSelectedItemIndex() - 1)); };
     nextPresetButton.onClick = [this] { presetBox.setSelectedItemIndex (juce::jmin (presetBox.getNumItems() - 1, presetBox.getSelectedItemIndex() + 1)); };
