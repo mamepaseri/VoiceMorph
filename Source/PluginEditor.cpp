@@ -17,16 +17,20 @@ namespace
     public:
         AdvancedSettingsPanel (VoiceMorphLookAndFeel& lookAndFeelIn,
                                juce::Label& rangeLabelIn, juce::ComboBox& rangeBoxIn,
+                               juce::Label& intensityLabelIn, juce::Slider& intensitySliderIn,
                                juce::Label& mixLabelIn, juce::Slider& mixSliderIn,
                                juce::Label& qualityLabelIn, juce::ComboBox& qualityBoxIn,
                                juce::ToggleButton& bypassButtonIn)
             : lookAndFeel (lookAndFeelIn), rangeLabel (rangeLabelIn), rangeBox (rangeBoxIn),
+              intensityLabel (intensityLabelIn), intensitySlider (intensitySliderIn),
               mixLabel (mixLabelIn), mixSlider (mixSliderIn), qualityLabel (qualityLabelIn),
               qualityBox (qualityBoxIn), bypassButton (bypassButtonIn)
         {
             setLookAndFeel (&lookAndFeel);
             addAndMakeVisible (rangeLabel);
             addAndMakeVisible (rangeBox);
+            addAndMakeVisible (intensityLabel);
+            addAndMakeVisible (intensitySlider);
             addAndMakeVisible (mixLabel);
             addAndMakeVisible (mixSlider);
             addAndMakeVisible (qualityLabel);
@@ -52,8 +56,10 @@ namespace
             rangeBox.setBounds (left.removeFromTop (30));
             qualityLabel.setBounds (left.removeFromTop (34));
             qualityBox.setBounds (left.removeFromTop (30));
+            intensityLabel.setBounds (right.removeFromTop (22));
+            intensitySlider.setBounds (right.removeFromTop (104));
             mixLabel.setBounds (right.removeFromTop (22));
-            mixSlider.setBounds (right.withSizeKeepingCentre (juce::jmin (150, right.getWidth()), juce::jmin (155, right.getHeight())));
+            mixSlider.setBounds (right.removeFromTop (104));
             bypassButton.setBounds (getLocalBounds().removeFromBottom (42).reduced (18, 4));
         }
 
@@ -61,6 +67,8 @@ namespace
         VoiceMorphLookAndFeel& lookAndFeel;
         juce::Label& rangeLabel;
         juce::ComboBox& rangeBox;
+        juce::Label& intensityLabel;
+        juce::Slider& intensitySlider;
         juce::Label& mixLabel;
         juce::Slider& mixSlider;
         juce::Label& qualityLabel;
@@ -314,7 +322,7 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     setupLabel (deEssRangeLabel, "DE-ESSER RANGE"); setupLabel (qualityLabel, "PROCESSING");
 
     for (auto* slider : { &inputGainSlider, &outputGainSlider, &voiceMixSlider, &pitchSlider, &formantSlider,
-                          &trackingSlider, &breathSlider, &deEssIntensitySlider })
+                          &trackingSlider, &breathSlider })
         addAndMakeVisible (*slider);
     configureFader (inputGainSlider);
     configureFader (outputGainSlider);
@@ -462,12 +470,11 @@ void VoiceMorphAudioProcessorEditor::resized()
     main.removeFromTop (9);
 
     auto controls = main.removeFromTop (160);
-    const int col = controls.getWidth() / 5;
+    const int col = controls.getWidth() / 4;
     auto c1 = controls.removeFromLeft (col);
     auto c2 = controls.removeFromLeft (col);
     auto c3 = controls.removeFromLeft (col);
-    auto c4 = controls.removeFromLeft (col);
-    auto c5 = controls;
+    auto c4 = controls;
     auto placeSmall = [] (juce::Rectangle<int> area, juce::Label& label, juce::Slider& slider)
     {
         label.setBounds (area.removeFromTop (20));
@@ -477,9 +484,8 @@ void VoiceMorphAudioProcessorEditor::resized()
     voiceMixSlider.setBounds (c1.reduced (4, 20).withSizeKeepingCentre (juce::jmin (96, c1.getWidth() - 8), 108));
     placeSmall (c2.reduced (4, 0), trackingLabel, trackingSlider);
     placeSmall (c3.reduced (4, 0), breathLabel, breathSlider);
-    placeSmall (c4.reduced (4, 0), deEssLabel, deEssIntensitySlider);
-    voiceModeLabel.setBounds (c5.reduced (4, 0).removeFromTop (20));
-    voiceModeButton.setBounds (c5.reduced (12, 22).withSizeKeepingCentre (juce::jmin (136, c5.getWidth() - 20), 42));
+    voiceModeLabel.setBounds (c4.reduced (4, 0).removeFromTop (20));
+    voiceModeButton.setBounds (c4.reduced (12, 22).withSizeKeepingCentre (juce::jmin (136, c4.getWidth() - 20), 42));
 
     main.removeFromTop (4);
     auto bottom = main.removeFromTop (52);
@@ -499,9 +505,9 @@ void VoiceMorphAudioProcessorEditor::showAdvancedSettings()
     }
 
     auto panelContent = std::make_unique<AdvancedSettingsPanel> (
-        lookAndFeel, deEssRangeLabel, deEssRangeBox, deEssMixLabel, deEssMixSlider,
-        qualityLabel, qualityBox, deEssBypassButton);
-    panelContent->setSize (460, 260);
+        lookAndFeel, deEssRangeLabel, deEssRangeBox, deEssLabel, deEssIntensitySlider,
+        deEssMixLabel, deEssMixSlider, qualityLabel, qualityBox, deEssBypassButton);
+    panelContent->setSize (500, 340);
     advancedCallout = juce::CallOutBox::launchAsynchronously (
         std::move (panelContent), advancedButton.getScreenBounds(), nullptr);
 }
