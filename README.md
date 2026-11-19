@@ -42,6 +42,16 @@ This project uses only public parameter concepts and original implementations. I
 
 This is not a ready-to-install VST3 binary. It is an expanded source / DSP integration prototype.
 
+## Windows installer
+
+The **Package Windows installer** GitHub Actions workflow packages the successful `VoiceMorph-VST3-ON` artifact from the Windows VST3 build. It creates `VoiceMorph-Setup-x64-0.8.0.exe` (the version follows `CMakeLists.txt`) and uploads it as a versioned Actions artifact for 90 days. The workflow runs automatically after a successful build on `main`; it can also be run manually with the successful build run ID.
+
+Download the EXE from the packaging workflow's **Artifacts** section. Run it, then choose per-user installation (the default, no administrator rights) or all-users installation (requires elevation). The installer places the `VoiceMorph.vst3` bundle in the matching standard VST3 folder and registers an uninstaller under Windows Apps & Features. Close your DAW before installing or uninstalling, then rescan its VST3 plug-ins.
+
+The installer is currently unsigned. Windows SmartScreen may show an unfamiliar-app warning. No code-signing certificate is configured, and the installer does not claim to be signed. The project has no GitHub Release process yet, so this build is available as an Actions artifact rather than a release download.
+
+**Prototype and licensing limitations:** this packages the existing x64 Signalsmith-enabled prototype; it does not imply that pitch/formant quality, host behavior, or latency have passed listening/runtime validation. The project's JUCE licensing route is still undecided; see [LICENSING.md](LICENSING.md). Resolve the applicable JUCE terms before redistributing the installer.
+
 ## Build on Windows 11
 
 Requirements:
