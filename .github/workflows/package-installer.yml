@@ -124,17 +124,27 @@ jobs:
       - name: Smoke-test installer payload and uninstaller
         shell: pwsh
         run: |
-          $setup = "dist\VoiceMorph-Setup-x64-$env:APP_VERSION.exe"
-          $testVst3 = Join-Path $env:RUNNER_TEMP "VoiceMorphInstallerSmoke\VoiceMorph.vst3"
-          & $setup /VERYSILENT /SUPPRESSMSGBOXES /NORESTART "/DIR=$testVst3"
+          $setup = (Resolve-Path "dist\VoiceMorph-Setup-x64-$env:APP_VERSION.exe").Path
+          $testVst3 = Join-Path $env:LOCALAPPDATA "Programs\Common\VST3\VoiceMorph.vst3"
+          $installLog = Join-Path $env:RUNNER_TEMP "voicemorph-install.log"
+          $install = Start-Process -FilePath $setup -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CURRENTUSER /LOG=$installLog" -Wait -PassThru
+          if ($install.ExitCode -ne 0) {
+            Get-Content -LiteralPath $installLog -Tail 50 -ErrorAction SilentlyContinue
+            throw "Silent installer failed with exit code $($install.ExitCode)."
+          }
+          if (-not (Test-Path -LiteralPath $testVst3 -PathType Container)) {
+            Get-Content -LiteralPath $installLog -Tail 50 -ErrorAction SilentlyContinue
+            throw "Installer completed without creating the standard per-user VST3 bundle."
+          }
 
-          $expectedFiles = @(Get-ChildItem -LiteralPath "installer\payload\VoiceMorph.vst3" -File -Recurse)
+          $expectedRoot = (Resolve-Path "installer\payload\VoiceMorph.vst3").Path
+          $expectedFiles = @(Get-ChildItem -LiteralPath $expectedRoot -File -Recurse)
           $installedFiles = @(Get-ChildItem -LiteralPath $testVst3 -File -Recurse)
           if ($expectedFiles.Count -ne $installedFiles.Count) {
             throw "Installed bundle file count does not match the staged VST3 payload."
           }
           foreach ($file in $expectedFiles) {
-            $relative = $file.FullName.Substring((Resolve-Path "installer\payload\VoiceMorph.vst3").Path.Length).TrimStart("\\")
+            $relative = $file.FullName.Substring($expectedRoot.Length).TrimStart("\")
             $installed = Join-Path $testVst3 $relative
             if (-not (Test-Path -LiteralPath $installed -PathType Leaf)) {
               throw "Installer payload is missing: $relative"
@@ -148,7 +158,8 @@ jobs:
           if (-not (Test-Path -LiteralPath $uninstaller -PathType Leaf)) {
             throw "Installer did not create its uninstaller."
           }
-          & $uninstaller /VERYSILENT /SUPPRESSMSGBOXES /NORESTART
+          $uninstall = Start-Process -FilePath $uninstaller -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait -PassThru
+          if ($uninstall.ExitCode -ne 0) { throw "Silent uninstaller failed with exit code $($uninstall.ExitCode)." }
           if (Test-Path -LiteralPath $testVst3) { throw "Uninstaller left the test VST3 bundle behind." }
 
       - name: Upload versioned installer
