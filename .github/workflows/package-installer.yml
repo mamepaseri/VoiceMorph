@@ -23,6 +23,7 @@ jobs:
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_branch == 'main')
     runs-on: windows-2022
+    timeout-minutes: 15
     steps:
       - name: Check out installer scripts
         uses: actions/checkout@v4
@@ -74,9 +75,12 @@ jobs:
       - name: Compile installer
         shell: pwsh
         run: |
-          $iscc = Get-ChildItem "C:\Program Files (x86)\Inno Setup" -Filter "ISCC.exe" -Recurse |
-            Select-Object -First 1 -ExpandProperty FullName
-          if (-not $iscc) { throw "ISCC.exe was not installed." }
+          $isccCandidates = @(
+            "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+            "C:\Program Files\Inno Setup 6\ISCC.exe"
+          )
+          $iscc = $isccCandidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if (-not $iscc) { throw "ISCC.exe was not installed in a known Inno Setup 6 location." }
           & $iscc "/DAppVersion=$env:APP_VERSION" "installer\VoiceMorph.iss"
           if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed with exit code $LASTEXITCODE." }
 
