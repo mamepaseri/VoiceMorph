@@ -12,6 +12,7 @@ class VoiceMorphAudioProcessor final : public juce::AudioProcessor
 public:
     static constexpr size_t waveformSize = 512;
     using Waveform = std::array<float, waveformSize>;
+    using PitchContour = std::array<float, waveformSize>;
     using APVTS = juce::AudioProcessorValueTreeState;
 
     VoiceMorphAudioProcessor();
@@ -39,6 +40,7 @@ public:
 
     APVTS apvts;
     void copyWaveforms (Waveform& input, Waveform& output) const noexcept;
+    void copyPitchContours (PitchContour& inputHz, PitchContour& targetHz) const noexcept;
     void switchAB (bool toB);
     bool isBSlotActive() const noexcept { return activeBSlot; }
     bool isVoiceEngineConnected() const noexcept { return voiceEngineAvailable.load (std::memory_order_relaxed); }
@@ -54,6 +56,9 @@ private:
     std::array<std::atomic<float>, waveformSize> inputWaveform {};
     std::array<std::atomic<float>, waveformSize> outputWaveform {};
     std::atomic<size_t> waveformWriteIndex { 0 };
+    std::array<std::atomic<float>, waveformSize> inputPitchContour {};
+    std::array<std::atomic<float>, waveformSize> targetPitchContour {};
+    std::atomic<size_t> pitchContourWriteIndex { 0 };
 
     SpeechFeatureAnalyzer speechAnalyzer;
     AdaptivePeriodicSplitter periodicSplitter;
@@ -95,3 +100,4 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VoiceMorphAudioProcessor)
 };
+

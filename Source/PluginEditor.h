@@ -6,11 +6,16 @@ class VoiceMorphLookAndFeel final : public juce::LookAndFeel_V4
 {
 public:
     VoiceMorphLookAndFeel();
+    void setLightTheme (bool shouldUseLightTheme);
+    bool isLightTheme() const noexcept { return lightTheme; }
     void drawRotarySlider (juce::Graphics&, int, int, int, int, float, float, float, juce::Slider&) override;
     void drawLinearSlider (juce::Graphics&, int, int, int, int, float, float, float,
                            juce::Slider::SliderStyle, juce::Slider&) override;
     void drawButtonBackground (juce::Graphics&, juce::Button&, const juce::Colour&,
                                bool, bool) override;
+    void drawToggleButton (juce::Graphics&, juce::ToggleButton&, bool, bool) override;
+private:
+    bool lightTheme = false;
 };
 
 class VoiceMorphAudioProcessorEditor final : public juce::AudioProcessorEditor,
@@ -23,22 +28,25 @@ public:
     void resized() override;
 
 private:
-    class WaveformMonitor final : public juce::Component
+    class PitchContourMonitor final : public juce::Component
     {
     public:
-        explicit WaveformMonitor (VoiceMorphAudioProcessor& p) : processor (p) {}
+        PitchContourMonitor (VoiceMorphAudioProcessor& p, VoiceMorphLookAndFeel& l) : processor (p), lookAndFeel (l) {}
         void paint (juce::Graphics&) override;
     private:
         VoiceMorphAudioProcessor& processor;
+        VoiceMorphLookAndFeel& lookAndFeel;
     };
 
     void timerCallback() override;
-    void configureRotary (juce::Slider&, const juce::String& suffix = {});
+    void configureRotary (juce::Slider&, const juce::String& suffix = {}, bool lcdReadout = false);
     void configureFader (juce::Slider&);
     void addSectionLabel (juce::Label&, const juce::String&);
     void applyPreset (int index);
     void showAdvancedSettings();
-    void refreshVoiceModeButton();
+    void refreshVoiceModeButtons();
+    void setVoiceMode (int index);
+    void refreshTheme();
     void drawPanel (juce::Graphics&, juce::Rectangle<float>, float corner = 12.0f);
 
     VoiceMorphAudioProcessor& processor;
@@ -46,15 +54,16 @@ private:
 
     juce::Label titleLabel, statusLabel, presetLabel;
     juce::ComboBox presetBox, deEssRangeBox, qualityBox;
-    juce::TextButton prevPresetButton { "‹" }, nextPresetButton { "›" }, aButton { "A" }, bButton { "B" }, advancedButton { "ADVANCED" };
+    juce::TextButton prevPresetButton { "<" }, nextPresetButton { ">" }, aButton { "A" }, bButton { "B" },
+                    advancedButton { "ADVANCED" }, darkThemeButton { "DARK" }, lightThemeButton { "LIGHT" };
     juce::ToggleButton bypassButton { "BYPASS" }, consonantButton { "CONSONANT PRESERVE" }, transientButton { "TRANSIENT PRESERVE" }, deEssBypassButton { "DE-ESSER OFF" };
     juce::Slider inputGainSlider, outputGainSlider, voiceMixSlider, pitchSlider, formantSlider,
                  trackingSlider, breathSlider, deEssIntensitySlider, deEssMixSlider;
-    juce::TextButton voiceModeButton { "NATURAL" };
-    juce::Component::SafePointer<juce::CallOutBox> advancedCallout;
+    juce::TextButton naturalModeButton { "NATURAL" }, balancedModeButton { "BALANCED" }, preciseModeButton { "PRECISE" };
+    std::unique_ptr<juce::DocumentWindow> advancedWindow;
     juce::Label inputLabel, outputLabel, pitchLabel, formantLabel, trackingLabel, breathLabel,
                mixLabel, voiceModeLabel, deEssLabel, deEssMixLabel, deEssRangeLabel, qualityLabel;
-    WaveformMonitor waveform;
+    PitchContourMonitor pitchMonitor;
 
     using SliderAttachment = VoiceMorphAudioProcessor::APVTS::SliderAttachment;
     using ButtonAttachment = VoiceMorphAudioProcessor::APVTS::ButtonAttachment;
@@ -67,3 +76,4 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VoiceMorphAudioProcessorEditor)
 };
+

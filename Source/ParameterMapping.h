@@ -26,4 +26,14 @@ namespace voice_morph::parameter_mapping
             return startAngle;
         return startAngle + std::clamp (proportion, 0.0, 1.0) * (endAngle - startAngle);
     }
+    // Pitch targets are defined in semitone space, so the plotted transformed F0
+    // follows the same ratio as the pitch-shift parameter.
+    inline double shiftedFrequencyFromSemitones (double frequencyHz, double semitones) noexcept
+    {
+        if (! std::isfinite (frequencyHz) || ! std::isfinite (semitones) || frequencyHz <= 0.0)
+            return 0.0;
+        const double shifted = frequencyHz * std::exp2 (semitones / 12.0);
+        return std::isfinite (shifted) ? shifted : 0.0;
+    }
 }
+

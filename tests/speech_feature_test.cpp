@@ -183,13 +183,25 @@ int main()
                        "voice mode slider value round-trips to choice index " + std::to_string (choice));
     }
 
-    constexpr double rotaryStart = 1.25 * pi;
-    constexpr double rotaryEnd = 2.75 * pi;
+    ok &= require (std::abs (voice_morph::parameter_mapping::shiftedFrequencyFromSemitones (220.0, 12.0) - 440.0) < 1.0e-9,
+                   "pitch contour target doubles after a +12 semitone shift");
+    ok &= require (std::abs (voice_morph::parameter_mapping::shiftedFrequencyFromSemitones (220.0, -12.0) - 110.0) < 1.0e-9,
+                   "pitch contour target halves after a -12 semitone shift");
+    ok &= require (voice_morph::parameter_mapping::shiftedFrequencyFromSemitones (0.0, 12.0) == 0.0,
+                   "pitch contour leaves silence unvoiced");
+    ok &= require (voice_morph::parameter_mapping::shiftedFrequencyFromSemitones (220.0, 0.0) == 220.0,
+                   "neutral pitch setting keeps the target contour aligned with input F0");
+
+    constexpr double rotaryStart = 0.75 * pi;
+    constexpr double rotaryEnd = 2.25 * pi;
     ok &= require (std::abs (voice_morph::parameter_mapping::rotaryAngleFromProportion (0.0, rotaryStart, rotaryEnd) - rotaryStart) < 1.0e-9,
                    "rotary marker maps minimum value to its configured start angle");
     ok &= require (std::abs (voice_morph::parameter_mapping::rotaryAngleFromProportion (0.5, rotaryStart, rotaryEnd)
                              - (rotaryStart + rotaryEnd) * 0.5) < 1.0e-9,
                    "rotary marker maps midpoint value to the dial midpoint");
+    ok &= require (std::abs (voice_morph::parameter_mapping::rotaryAngleFromProportion (0.5, rotaryStart, rotaryEnd)
+                             - 1.5 * pi) < 1.0e-9,
+                   "the neutral rotary marker sits at 12 o'clock, matching the dial");
     ok &= require (std::abs (voice_morph::parameter_mapping::rotaryAngleFromProportion (1.0, rotaryStart, rotaryEnd) - rotaryEnd) < 1.0e-9,
                    "rotary marker maps maximum value to its configured end angle");
     SpeechFeatureAnalyzer analyzer;
@@ -880,3 +892,4 @@ int main()
 
     return ok ? 0 : 1;
 }
+

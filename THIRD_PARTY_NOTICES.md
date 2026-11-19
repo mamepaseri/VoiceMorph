@@ -19,3 +19,4 @@ Open-source DSP components do not automatically make the complete plug-in permis
 ## No proprietary plug-in implementation reused
 
 User-supplied DLL/VST3 files were inspected only for file format, embedded strings, parameter-like names, and high-level workflow clues. No disassembly, decompilation, code extraction, DSP reverse engineering, or proprietary artwork reuse was performed. VoiceMorph's DSP implementations are original wrappers / integration work around the open-source projects listed above.
+

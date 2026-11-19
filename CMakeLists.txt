@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(VoiceMorph VERSION 0.8.1 LANGUAGES C CXX)
+project(VoiceMorph VERSION 0.8.2 LANGUAGES C CXX)
 
 include(FetchContent)
 
@@ -114,3 +114,4 @@ target_link_libraries(VoiceMorph PRIVATE
     juce::juce_recommended_config_flags
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags)
+

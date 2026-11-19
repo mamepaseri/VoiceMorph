@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.2 — 2026-11-20
+
+- Redesigned the plug-in editor with dark/light themes, a three-second pitch monitor, value arcs, and a separate resizable Advanced window.
+- Reworked Voice Mode into a three-state button group, moved Input/Output faders side by side on the right, and resized the Pitch, Formant, and Voice Mix controls.
+- Corrected parameter-choice and rotary display mapping and added input/target pitch history for the monitor.
+- Kept Mix=100% free of the dry-reference signal while preserving only residual/transient content explicitly enabled by its controls.
+- Added deterministic Signalsmith processing and regression coverage for mapping, Mix endpoints, synthetic signals, pitch, and latency.
+- Updated automatic release packaging to require successful Windows VST3 and DSP workflows for the same `main` commit and to skip stale builds.
+
 ## 0.8.0 — 2026-11-19
 
 - Wired Breath Preserve, Consonant Preserve, and Transient Preserve into the periodic split-gating controls; synthetic regression tests verify each switch/amount changes the candidate as intended.

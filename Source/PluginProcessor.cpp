@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "ParameterMapping.h"
 
 namespace
 {
@@ -26,6 +27,8 @@ VoiceMorphAudioProcessor::VoiceMorphAudioProcessor()
 {
     for (auto& sample : inputWaveform)  sample.store (0.0f);
     for (auto& sample : outputWaveform) sample.store (0.0f);
+    for (auto& sample : inputPitchContour) sample.store (0.0f);
+    for (auto& sample : targetPitchContour) sample.store (0.0f);
     slotA = apvts.copyState();
     slotB = slotA.createCopy();
     updateDetectorBand (0);
@@ -119,6 +122,9 @@ void VoiceMorphAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     splitSamplesInFrame = 0;
     publishedPeriodicRms.store (0.0f, std::memory_order_relaxed);
     publishedResidualRms.store (0.0f, std::memory_order_relaxed);
+    for (auto& pitch : inputPitchContour) pitch.store (0.0f, std::memory_order_relaxed);
+    for (auto& pitch : targetPitchContour) pitch.store (0.0f, std::memory_order_relaxed);
+    pitchContourWriteIndex.store (0, std::memory_order_relaxed);
     publishSpeechFeatures();
 }
 
@@ -219,6 +225,18 @@ void VoiceMorphAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
 
             if (newFeatureFrame)
             {
+                const bool hasStablePitch = speech.pitchHz >= 55.0f && speech.pitchHz <= 880.0f
+                                         && speech.voiced >= 0.25f;
+                const float inputF0 = hasStablePitch ? speech.pitchHz : 0.0f;
+                const float targetF0 = hasStablePitch
+                    ? static_cast<float> (voice_morph::parameter_mapping::shiftedFrequencyFromSemitones (
+                          speech.pitchHz, pitchSemitones))
+                    : 0.0f;
+                const size_t contourWrite = pitchContourWriteIndex.load (std::memory_order_relaxed);
+                inputPitchContour[contourWrite].store (inputF0, std::memory_order_relaxed);
+                targetPitchContour[contourWrite].store (targetF0, std::memory_order_relaxed);
+                pitchContourWriteIndex.store ((contourWrite + 1) % waveformSize, std::memory_order_relaxed);
+
                 publishSpeechFeatures();
                 if (splitSamplesInFrame > 0)
                 {
@@ -331,6 +349,17 @@ void VoiceMorphAudioProcessor::getSplitLevels (float& periodicRms, float& residu
     residualRms = publishedResidualRms.load (std::memory_order_relaxed);
 }
 
+void VoiceMorphAudioProcessor::copyPitchContours (PitchContour& inputHz, PitchContour& targetHz) const noexcept
+{
+    const size_t start = pitchContourWriteIndex.load (std::memory_order_relaxed);
+    for (size_t i = 0; i < waveformSize; ++i)
+    {
+        const size_t index = (start + i) % waveformSize;
+        inputHz[i] = inputPitchContour[index].load (std::memory_order_relaxed);
+        targetHz[i] = targetPitchContour[index].load (std::memory_order_relaxed);
+    }
+}
+
 void VoiceMorphAudioProcessor::copyWaveforms (Waveform& input, Waveform& output) const noexcept
 {
     const size_t start = waveformWriteIndex.load (std::memory_order_relaxed);
@@ -379,3 +408,4 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new VoiceMorphAudioProcessor();
 }
+

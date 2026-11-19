@@ -8,7 +8,7 @@ on:
       - 'installer/**'
       - 'README.md'
   workflow_run:
-    workflows: ["Windows VST3 hybrid prototype build"]
+    workflows: ["Windows VST3 hybrid prototype build", "DSP tests"]
     types: [completed]
     branches: [main]
   workflow_dispatch:
@@ -43,26 +43,64 @@ jobs:
 
       - name: Resolve successful VST3 build run
         id: source
+        if: github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
         uses: actions/github-script@v7
         with:
           script: |
-            const requested = context.eventName === "workflow_run"
-              ? context.payload.workflow_run.id
-              : (context.eventName === "workflow_dispatch" ? core.getInput("build_run_id") : null);
-            const candidates = requested
-              ? [await github.rest.actions.getWorkflowRun({ owner: context.repo.owner, repo: context.repo.repo, run_id: Number(requested) }).then(r => r.data)]
-              : (await github.rest.actions.listWorkflowRuns({ owner: context.repo.owner, repo: context.repo.repo, workflow_id: 423863336, branch: "main", per_page: 50 })).data.workflow_runs;
-            for (const run of candidates) {
-              if (run.status !== "completed" || run.conclusion !== "success" || run.head_branch !== "main") continue;
-              const { data } = await github.rest.actions.listWorkflowRunArtifacts({ owner: context.repo.owner, repo: context.repo.repo, run_id: run.id });
-              if (data.artifacts.some(a => a.name === "VoiceMorph-VST3-ON" && !a.expired)) {
-                core.setOutput("run_id", String(run.id));
+            const { owner, repo } = context.repo;
+            let windowsRuns = [];
+            let matchingRuns = [];
+
+            if (context.eventName === "workflow_dispatch") {
+              const requested = core.getInput("build_run_id");
+              const { data: run } = await github.rest.actions.getWorkflowRun({ owner, repo, run_id: Number(requested) });
+              if (run.status === "completed" && run.conclusion === "success" && run.head_branch === "main" &&
+                  run.path.endsWith("windows-vst3-ui.yml")) {
+                windowsRuns = [run];
+                matchingRuns = (await github.rest.actions.listWorkflowRuns({
+                  owner, repo, branch: "main", head_sha: run.head_sha, per_page: 100
+                })).data.workflow_runs;
+              }
+            } else if (context.eventName === "workflow_run") {
+              const eventRun = context.payload.workflow_run;
+              matchingRuns = (await github.rest.actions.listWorkflowRuns({
+                owner, repo, branch: "main", head_sha: eventRun.head_sha, per_page: 100
+              })).data.workflow_runs;
+              windowsRuns = matchingRuns.filter(run => run.path.endsWith("windows-vst3-ui.yml") &&
+                run.status === "completed" && run.conclusion === "success" && run.head_branch === "main");
+            } else {
+              windowsRuns = (await github.rest.actions.listWorkflowRuns({
+                owner, repo, workflow_id: "windows-vst3-ui.yml", branch: "main", per_page: 50
+              })).data.workflow_runs.filter(run =>
+                run.status === "completed" && run.conclusion === "success" && run.head_branch === "main");
+            }
+
+            if (context.eventName === "workflow_run" || context.eventName === "workflow_dispatch") {
+              const dspPassed = matchingRuns.some(run => run.path.endsWith("dsp-tests.yml") &&
+                run.status === "completed" && run.conclusion === "success" && run.head_branch === "main");
+              if (!dspPassed) {
+                core.setOutput("ready", "false");
+                core.notice("Packaging is waiting for successful DSP tests on the same commit as the Windows VST3 build.");
                 return;
               }
             }
-            core.setFailed("No successful main-branch VST3 build with an unexpired Signalsmith ON artifact was found.");
+
+            windowsRuns.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+            for (const run of windowsRuns) {
+              const { data } = await github.rest.actions.listWorkflowRunArtifacts({ owner, repo, run_id: run.id });
+              if (data.artifacts.some(a => a.name === "VoiceMorph-VST3-ON" && !a.expired)) {
+                core.setOutput("ready", "true");
+                core.setOutput("run_id", String(run.id));
+                core.setOutput("head_sha", run.head_sha);
+                return;
+              }
+            }
+
+            core.setOutput("ready", "false");
+            core.notice("No successful main-branch Windows VST3 build with an unexpired Signalsmith ON artifact is ready to package.");
 
       - name: Download Signalsmith ON VST3 build artifact
+        if: steps.source.outputs.ready == 'true'
         uses: actions/download-artifact@v4
         with:
           name: VoiceMorph-VST3-ON
@@ -72,6 +110,7 @@ jobs:
           github-token: ${{ github.token }}
 
       - name: Validate and stage VST3 bundle
+        if: steps.source.outputs.ready == 'true'
         shell: pwsh
         run: |
           $matches = @(Get-ChildItem -Path downloaded -Directory -Recurse -Filter "VoiceMorph.vst3")
@@ -101,10 +140,12 @@ jobs:
           "Staged VoiceMorph $version bundle from successful Signalsmith ON build."
 
       - name: Install Inno Setup
+        if: steps.source.outputs.ready == 'true'
         shell: pwsh
         run: choco install innosetup --yes --no-progress
 
       - name: Compile installer
+        if: steps.source.outputs.ready == 'true'
         shell: pwsh
         run: |
           $isccCandidates = @(
@@ -126,6 +167,7 @@ jobs:
           Get-FileHash -Algorithm SHA256 -LiteralPath $setup | Format-List | Out-String | Write-Host
 
       - name: Smoke-test installer payload and uninstaller
+        if: steps.source.outputs.ready == 'true'
         shell: pwsh
         run: |
           $setup = (Resolve-Path "dist\VoiceMorph-Setup-x64-$env:APP_VERSION.exe").Path
@@ -168,15 +210,25 @@ jobs:
 
       - name: Check whether this version is already published
         id: release_gate
-        if: github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch'
+        if: steps.source.outputs.ready == 'true' && (github.event_name == 'workflow_run' || github.event_name == 'workflow_dispatch')
         uses: actions/github-script@v7
         env:
           APP_VERSION: ${{ env.APP_VERSION }}
+          SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const tag = "v" + process.env.APP_VERSION;
+            const { data: sourceRun } = await github.rest.actions.getWorkflowRun({
+              owner, repo, run_id: Number(process.env.SOURCE_RUN_ID)
+            });
+            const { data: mainRef } = await github.rest.git.getRef({ owner, repo, ref: "heads/main" });
+            if (sourceRun.head_sha !== mainRef.object.sha) {
+              core.setOutput("publish", "false");
+              core.notice("Release skipped because main has advanced beyond the validated build; the latest commit must pass CI first.");
+              return;
+            }
             let tagExists = false;
             try {
               await github.rest.git.getRef({ owner, repo, ref: "tags/" + tag });
@@ -241,6 +293,11 @@ jobs:
             if (sourceRun.status !== "completed" || sourceRun.conclusion !== "success" ||
                 sourceRun.head_branch !== "main" || !sourceRun.path.endsWith("windows-vst3-ui.yml")) {
               core.setFailed("Refusing to publish from a run that is not a successful main-branch Windows VST3 build.");
+              return;
+            }
+            const { data: mainRef } = await github.rest.git.getRef({ owner, repo, ref: "heads/main" });
+            if (sourceRun.head_sha !== mainRef.object.sha) {
+              core.notice("Release skipped because main advanced while the installer was being validated.");
               return;
             }
 
