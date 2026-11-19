@@ -182,6 +182,16 @@ int main()
         ok &= require (voice_morph::parameter_mapping::choiceValueToIndex (sliderValue, 3) == choice,
                        "voice mode slider value round-trips to choice index " + std::to_string (choice));
     }
+
+    constexpr double rotaryStart = 1.25 * pi;
+    constexpr double rotaryEnd = 2.75 * pi;
+    ok &= require (std::abs (voice_morph::parameter_mapping::rotaryAngleFromProportion (0.0, rotaryStart, rotaryEnd) - rotaryStart) < 1.0e-9,
+                   "rotary marker maps minimum value to its configured start angle");
+    ok &= require (std::abs (voice_morph::parameter_mapping::rotaryAngleFromProportion (0.5, rotaryStart, rotaryEnd)
+                             - (rotaryStart + rotaryEnd) * 0.5) < 1.0e-9,
+                   "rotary marker maps midpoint value to the dial midpoint");
+    ok &= require (std::abs (voice_morph::parameter_mapping::rotaryAngleFromProportion (1.0, rotaryStart, rotaryEnd) - rotaryEnd) < 1.0e-9,
+                   "rotary marker maps maximum value to its configured end angle");
     SpeechFeatureAnalyzer analyzer;
     analyzer.prepare (sampleRate);
 
