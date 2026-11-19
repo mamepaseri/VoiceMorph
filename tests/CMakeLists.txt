@@ -11,8 +11,8 @@ add_executable(speech_feature_test
     ../Source/Dsp/PitchSynchronousShifter.cpp
     ../Source/Dsp/SignalsmithPitchEngine.cpp)
 target_compile_features(speech_feature_test PRIVATE cxx_std_17)
-
 option(VOICEMORPH_TEST_SIGNALSMITH "Fetch Signalsmith and test its pitch-shift path" OFF)
+
 if (VOICEMORPH_TEST_SIGNALSMITH)
     include(FetchContent)
     FetchContent_Declare(signalsmith_stretch
@@ -26,17 +26,16 @@ if (VOICEMORPH_TEST_SIGNALSMITH)
     endif()
     target_link_libraries(speech_feature_test PRIVATE signalsmith-stretch)
     target_compile_definitions(speech_feature_test PRIVATE VOICEMORPH_HAS_SIGNALSMITH=1)
-    if (NOT MSVC)
-        # The pinned upstream headers trigger -Wshadow; the OFF test job keeps
-        # strict warning-as-error coverage for VoiceMorph's own source.
-        target_compile_options(speech_feature_test PRIVATE -Wno-shadow)
-    endif()
 else()
     target_compile_definitions(speech_feature_test PRIVATE VOICEMORPH_HAS_SIGNALSMITH=0)
 endif()
 
 if (MSVC)
     target_compile_options(speech_feature_test PRIVATE /W4 /permissive-)
+elseif (VOICEMORPH_TEST_SIGNALSMITH)
+    # Signalsmith's pinned headers warn about shadowed names. The separate
+    # Signalsmith OFF job still checks VoiceMorph with warnings treated as errors.
+    target_compile_options(speech_feature_test PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow)
 else()
     target_compile_options(speech_feature_test PRIVATE -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Werror)
 endif()
