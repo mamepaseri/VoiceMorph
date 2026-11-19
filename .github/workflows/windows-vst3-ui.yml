@@ -1,0 +1,31 @@
+name: Windows VST3 hybrid prototype build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-vst3:
+    name: VS2022 x64 VST3 (Signalsmith ${{ matrix.signalsmith }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        signalsmith: [ON, OFF]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S . -B build-${{ matrix.signalsmith }} -G "Visual Studio 17 2022" -A x64 -DVOICEMORPH_ENABLE_SIGNALSMITH=${{ matrix.signalsmith }} -DVOICEMORPH_ENABLE_WORLD=OFF
+      - name: Build VST3
+        run: cmake --build build-${{ matrix.signalsmith }} --config Release --target VoiceMorph_VST3 --parallel 2
+      - name: Upload VST3 artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoiceMorph-VST3-${{ matrix.signalsmith }}
+          path: build-${{ matrix.signalsmith }}/VoiceMorph_artefacts/Release/VST3
+          if-no-files-found: error

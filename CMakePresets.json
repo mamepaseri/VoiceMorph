@@ -1,0 +1,46 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 24,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "windows-vs2022-full-dsp",
+      "displayName": "Windows VS2022 x64 — Full DSP research build",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "VOICEMORPH_ENABLE_SIGNALSMITH": "ON",
+        "VOICEMORPH_ENABLE_WORLD": "ON"
+      }
+    },
+    {
+      "name": "windows-vs2022-ui-only",
+      "displayName": "Windows VS2022 x64 — UI shell only (no DSP fetch)",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "binaryDir": "${sourceDir}/out/build/${presetName}",
+      "cacheVariables": {
+        "VOICEMORPH_ENABLE_SIGNALSMITH": "OFF",
+        "VOICEMORPH_ENABLE_WORLD": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "build-full-dsp-release",
+      "configurePreset": "windows-vs2022-full-dsp",
+      "configuration": "Release",
+      "targets": ["VoiceMorph_VST3"]
+    },
+    {
+      "name": "build-ui-only-release",
+      "configurePreset": "windows-vs2022-ui-only",
+      "configuration": "Release",
+      "targets": ["VoiceMorph_VST3"]
+    }
+  ]
+}

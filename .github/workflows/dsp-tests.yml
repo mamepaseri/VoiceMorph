@@ -1,0 +1,39 @@
+name: DSP tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-tests:
+    name: Linux DSP tests (strict warnings)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S tests -B build/tests -DCMAKE_BUILD_TYPE=Release
+      - name: Build
+        run: cmake --build build/tests --parallel 2
+      - name: Test
+        run: ctest --test-dir build/tests --output-on-failure
+
+  linux-sanitizers:
+    name: AddressSanitizer + UndefinedBehaviorSanitizer
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Configure
+        run: cmake -S tests -B build/tests-sanitized -DCMAKE_BUILD_TYPE=RelWithDebInfo -DVOICEMORPH_TEST_SANITIZERS=ON
+      - name: Build
+        run: cmake --build build/tests-sanitized --parallel 2
+      - name: Test
+        env:
+          ASAN_OPTIONS: detect_leaks=1:halt_on_error=1
+          UBSAN_OPTIONS: halt_on_error=1
+        run: ctest --test-dir build/tests-sanitized --output-on-failure
