@@ -72,7 +72,8 @@ jobs:
               windowsRuns = (await github.rest.actions.listWorkflowRuns({
                 owner, repo, workflow_id: "windows-vst3-ui.yml", branch: "main", per_page: 50
               })).data.workflow_runs.filter(run =>
-                run.status === "completed" && run.conclusion === "success" && run.head_branch === "main");
+                run.status === "completed" && run.conclusion === "success" && run.head_branch === "main"
+                && run.head_sha === context.sha);
             }
 
             if (context.eventName === "workflow_run" || context.eventName === "workflow_dispatch") {
@@ -273,6 +274,12 @@ jobs:
           $archive = "dist\VoiceMorph-Setup-x64-$env:APP_VERSION.zip"
           Compress-Archive -LiteralPath $setup -DestinationPath $archive -CompressionLevel Optimal -Force
           if (-not (Test-Path -LiteralPath $archive -PathType Leaf)) { throw "Release archive was not created." }
+          $exeHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $setup).Hash.ToLowerInvariant()
+          $zipHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
+          @(
+            "$exeHash  $(Split-Path -Leaf $setup)",
+            "$zipHash  $(Split-Path -Leaf $archive)"
+          ) | Set-Content -Encoding ascii "dist\SHA256SUMS.txt"
 
       - name: Publish new version to GitHub Releases
         if: steps.release_gate.outputs.publish == 'true'
@@ -340,12 +347,14 @@ jobs:
                   tag_name: tag,
                   target_commitish: sourceRun.head_sha,
                   name: "VoiceMorph " + version,
-                  body: "Automated Windows x64 VST3 installer for VoiceMorph " + version +
-                    ".\n\nBuilt from commit " + sourceRun.head_sha +
-                    " with the Signalsmith Stretch backend enabled. The installer is unsigned and Windows SmartScreen may show a warning. " +
-                    "VoiceMorph remains an experimental prototype; see the README and LICENSING.md for limitations and JUCE licensing terms.",
+                  body: "## VoiceMorph " + version + " — Experimental beta\n\n" +
+                    "Adds an independent Pitch Dynamics control that expands voiced pitch movement around a slow phrase baseline. " +
+                    "See README.md and CHANGELOG.md for the A/B measurements and configuration details.\n\n" +
+                    "Build: Windows x64 VST3, Signalsmith Stretch ON. DSP CI and installer install/uninstall smoke test must pass.\n\n" +
+                    "Limitations: synthetic contour tests do not establish natural voice quality. No Cakewalk Sonar / Zoom UAC-232 listening validation was performed; robotic or warbly artifacts may remain. " +
+                    "The installer is unsigned and Windows SmartScreen may show a warning. See LICENSING.md and THIRD_PARTY_NOTICES.md.",
                   draft: true,
-                  prerelease: false,
+                  prerelease: true,
                   generate_release_notes: false
                 });
                 release = created;
@@ -374,7 +383,30 @@ jobs:
               });
             }
 
-            if (release.draft) {
-              await github.rest.repos.updateRelease({ owner, repo, release_id: release.id, draft: false });
+            const extraAssets = [
+              { name: "VoiceMorph-Setup-x64-" + version + ".exe",
+                path: "dist/VoiceMorph-Setup-x64-" + version + ".exe",
+                contentType: "application/vnd.microsoft.portable-executable" },
+              { name: "SHA256SUMS.txt", path: "dist/SHA256SUMS.txt", contentType: "text/plain" }
+            ];
+            for (const item of extraAssets) {
+              if (!fs.existsSync(item.path)) {
+                core.setFailed("Release asset is missing: " + item.path);
+                return;
+              }
+              if (!release.assets.some(asset => asset.name === item.name)) {
+                const itemStats = fs.statSync(item.path);
+                await github.rest.repos.uploadReleaseAsset({
+                  owner, repo, release_id: release.id, name: item.name,
+                  data: fs.readFileSync(item.path),
+                  headers: { "content-type": item.contentType, "content-length": itemStats.size }
+                });
+              }
             }
-            core.notice("Published " + assetName + " to " + release.html_url);
+
+            if (release.draft) {
+              await github.rest.repos.updateRelease({
+                owner, repo, release_id: release.id, draft: false, prerelease: true
+              });
+            }
+            core.notice("Published " + assetName + " and direct installer assets to " + release.html_url);

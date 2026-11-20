@@ -11,7 +11,7 @@ namespace
     const UiPalette darkPalette {
         juce::Colour (0xff151a24), juce::Colour (0xff292f40), juce::Colour (0xff394257),
         juce::Colour (0xff707b91), juce::Colour (0xffedf0f4), juce::Colour (0xffa4adbd),
-        juce::Colour (0xffff963d), juce::Colour (0xff8f5125), juce::Colour (0xff111722),
+        juce::Colour (0xff39d6e5), juce::Colour (0xff1e7782), juce::Colour (0xff111722),
         juce::Colour (0xff354052)
     };
     const UiPalette lightPalette {
@@ -165,7 +165,9 @@ void VoiceMorphLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, i
     const float faceR = side * 0.335f;
     const float traceR = side * 0.363f;
     const bool lcdDial = slider.getComponentID() == "lcd-dial";
+    const bool percentDial = slider.getComponentID() == "percent-dial";
     const bool bipolar = lcdDial;
+    const bool showReadout = lcdDial || percentDial;
     const float proportion = static_cast<float> (slider.valueToProportionOfLength (slider.getValue()));
     const float angle = static_cast<float> (voice_morph::parameter_mapping::rotaryAngleFromProportion (
         proportion, startAngle, endAngle));
@@ -250,7 +252,7 @@ void VoiceMorphLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, i
     g.setColour (colours.accent);
     g.drawLine ({ markerStart, markerEnd }, juce::jmax (4.0f, side * 0.040f));
 
-    if (lcdDial)
+    if (showReadout)
     {
         auto number = juce::Rectangle<float> (cx - faceR * 0.86f, cy - side * 0.105f,
                                                faceR * 1.72f, side * 0.20f);
@@ -258,11 +260,11 @@ void VoiceMorphLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, i
                                               faceR * 1.24f, side * 0.13f);
         g.setColour (colours.text);
         g.setFont (juce::FontOptions (juce::jlimit (17.0f, 25.0f, side * 0.145f), juce::Font::bold));
-        g.drawFittedText (juce::String (slider.getValue(), 2), number.toNearestInt(),
+        g.drawFittedText (juce::String (slider.getValue(), lcdDial ? 2 : 0), number.toNearestInt(),
                           juce::Justification::centred, 1);
         g.setColour (colours.accent);
         g.setFont (juce::FontOptions (juce::jmax (10.0f, side * 0.075f), juce::Font::bold));
-        g.drawFittedText ("ST", units.toNearestInt(), juce::Justification::centred, 1);
+        g.drawFittedText (lcdDial ? "ST" : "%", units.toNearestInt(), juce::Justification::centred, 1);
     }
 }
 
@@ -558,13 +560,14 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     };
     setupLabel (inputLabel, "INPUT"); setupLabel (outputLabel, "OUTPUT");
     setupLabel (pitchLabel, "PITCH"); setupLabel (formantLabel, "FORMANT");
-    setupLabel (trackingLabel, "TRACKING"); setupLabel (breathLabel, "BREATH");
+    setupLabel (trackingLabel, "TRACKING"); setupLabel (pitchDynamicsLabel, "PITCH DYNAMICS");
+    setupLabel (breathLabel, "BREATH");
     setupLabel (mixLabel, "VOICE MIX"); setupLabel (voiceModeLabel, "VOICE MODE");
     setupLabel (deEssLabel, "SIBILANCE"); setupLabel (deEssMixLabel, "DE-ESSER MIX");
     setupLabel (deEssRangeLabel, "DE-ESSER RANGE"); setupLabel (qualityLabel, "PROCESSING");
 
     for (auto* slider : { &inputGainSlider, &outputGainSlider, &voiceMixSlider, &pitchSlider, &formantSlider,
-                          &trackingSlider, &breathSlider })
+                          &trackingSlider, &pitchDynamicsSlider, &breathSlider })
         addAndMakeVisible (*slider);
     configureFader (inputGainSlider);
     configureFader (outputGainSlider);
@@ -572,6 +575,9 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     configureRotary (pitchSlider, " st", true);
     configureRotary (formantSlider, " st", true);
     configureRotary (trackingSlider, "%");
+    configureRotary (pitchDynamicsSlider, "%");
+    pitchDynamicsSlider.setComponentID ("percent-dial");
+    pitchDynamicsSlider.setTooltip ("Expands or softens expressive F0 movement around the phrase pitch. 0% = neutral, 100% = 1.45x.");
     configureRotary (breathSlider, "%");
     configureRotary (deEssIntensitySlider, "%");
     configureRotary (deEssMixSlider, "%");
@@ -588,6 +594,7 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     pitchAttachment = std::make_unique<SliderAttachment> (processor.apvts, "pitchSemitones", pitchSlider);
     formantAttachment = std::make_unique<SliderAttachment> (processor.apvts, "formantSemitones", formantSlider);
     trackingAttachment = std::make_unique<SliderAttachment> (processor.apvts, "tracking", trackingSlider);
+    pitchDynamicsAttachment = std::make_unique<SliderAttachment> (processor.apvts, "pitchDynamics", pitchDynamicsSlider);
     breathAttachment = std::make_unique<SliderAttachment> (processor.apvts, "breathPreserve", breathSlider);
     deEssIntensityAttachment = std::make_unique<SliderAttachment> (processor.apvts, "deEssIntensity", deEssIntensitySlider);
     deEssMixAttachment = std::make_unique<SliderAttachment> (processor.apvts, "deEssMix", deEssMixSlider);
@@ -731,18 +738,20 @@ void VoiceMorphAudioProcessorEditor::resized()
     consonantButton.setBounds (statusRow.removeFromLeft (214).reduced (1, 2));
     transientButton.setBounds (statusRow.removeFromLeft (214).reduced (1, 2));
 
-    const int controlColumnWidth = controls.getWidth() / 3;
+    const int controlColumnWidth = controls.getWidth() / 4;
     auto trackingArea = controls.removeFromLeft (controlColumnWidth);
+    auto dynamicsArea = controls.removeFromLeft (controlColumnWidth);
     auto breathArea = controls.removeFromLeft (controlColumnWidth);
     auto modeArea = controls;
     trackingLabel.setBounds (trackingArea.removeFromTop (20));
+    pitchDynamicsLabel.setBounds (dynamicsArea.removeFromTop (20));
     breathLabel.setBounds (breathArea.removeFromTop (20));
-    trackingSlider.setBounds (trackingArea.withSizeKeepingCentre (
-        juce::jmin (142, trackingArea.getWidth() - 12, trackingArea.getHeight() - 2),
-        juce::jmin (142, trackingArea.getWidth() - 12, trackingArea.getHeight() - 2)));
-    breathSlider.setBounds (breathArea.withSizeKeepingCentre (
-        juce::jmin (142, breathArea.getWidth() - 12, breathArea.getHeight() - 2),
-        juce::jmin (142, breathArea.getWidth() - 12, breathArea.getHeight() - 2)));
+    const int trackingDialSide = juce::jmin (116, trackingArea.getWidth() - 12, trackingArea.getHeight() - 2);
+    trackingSlider.setBounds (trackingArea.withSizeKeepingCentre (trackingDialSide, trackingDialSide));
+    const int dynamicsDialSide = juce::jmin (116, dynamicsArea.getWidth() - 12, dynamicsArea.getHeight() - 2);
+    pitchDynamicsSlider.setBounds (dynamicsArea.withSizeKeepingCentre (dynamicsDialSide, dynamicsDialSide));
+    const int breathDialSide = juce::jmin (116, breathArea.getWidth() - 12, breathArea.getHeight() - 2);
+    breathSlider.setBounds (breathArea.withSizeKeepingCentre (breathDialSide, breathDialSide));
     voiceModeLabel.setBounds (modeArea.removeFromTop (20));
     auto modeButtons = modeArea.withSizeKeepingCentre (juce::jmin (300, modeArea.getWidth() - 12), 46);
     const int segmentWidth = modeButtons.getWidth() / 3;
@@ -799,7 +808,7 @@ void VoiceMorphAudioProcessorEditor::refreshTheme()
     lightThemeButton.setToggleState (lookAndFeel.isLightTheme(), juce::dontSendNotification);
 
     for (auto* label : { &titleLabel, &presetLabel, &inputLabel, &outputLabel, &pitchLabel,
-                         &formantLabel, &trackingLabel, &breathLabel, &mixLabel, &voiceModeLabel,
+                         &formantLabel, &trackingLabel, &pitchDynamicsLabel, &breathLabel, &mixLabel, &voiceModeLabel,
                          &deEssLabel, &deEssMixLabel, &deEssRangeLabel, &qualityLabel })
         label->setColour (juce::Label::textColourId, colours.muted);
     titleLabel.setColour (juce::Label::textColourId, colours.text);
@@ -814,7 +823,7 @@ void VoiceMorphAudioProcessorEditor::refreshTheme()
         button->repaint();
     }
     for (auto* slider : { &inputGainSlider, &outputGainSlider, &voiceMixSlider, &pitchSlider,
-                          &formantSlider, &trackingSlider, &breathSlider, &deEssIntensitySlider, &deEssMixSlider })
+                          &formantSlider, &trackingSlider, &pitchDynamicsSlider, &breathSlider, &deEssIntensitySlider, &deEssMixSlider })
         slider->repaint();
 
     presetBox.setColour (juce::ComboBox::textColourId, colours.text);
@@ -880,11 +889,11 @@ void VoiceMorphAudioProcessorEditor::applyPreset (int index)
 
     switch (index)
     {
-        case 1: setFloat ("pitchSemitones", 2.0f); setFloat ("formantSemitones", 1.5f); setFloat ("tracking", 72.0f); setFloat ("breathPreserve", 75.0f); setChoice ("voiceMode", 0, 3); break;
-        case 2: setFloat ("pitchSemitones", 2.5f); setFloat ("formantSemitones", 2.5f); setFloat ("tracking", 62.0f); setFloat ("breathPreserve", 90.0f); setChoice ("voiceMode", 0, 3); break;
-        case 3: setFloat ("pitchSemitones", 1.0f); setFloat ("formantSemitones", -0.5f); setFloat ("tracking", 78.0f); setFloat ("breathPreserve", 55.0f); setChoice ("voiceMode", 1, 3); break;
-        case 4: setFloat ("pitchSemitones", 4.0f); setFloat ("formantSemitones", 3.0f); setFloat ("tracking", 50.0f); setFloat ("breathPreserve", 70.0f); setChoice ("voiceMode", 2, 3); break;
-        default: setFloat ("pitchSemitones", 0.0f); setFloat ("formantSemitones", 0.0f); setFloat ("tracking", 70.0f); setFloat ("breathPreserve", 65.0f); setChoice ("voiceMode", 0, 3); break;
+        case 1: setFloat ("pitchSemitones", 2.0f); setFloat ("formantSemitones", 1.5f); setFloat ("pitchDynamics", 85.0f); setFloat ("tracking", 72.0f); setFloat ("breathPreserve", 75.0f); setChoice ("voiceMode", 0, 3); break;
+        case 2: setFloat ("pitchSemitones", 2.5f); setFloat ("formantSemitones", 2.5f); setFloat ("pitchDynamics", 58.0f); setFloat ("tracking", 62.0f); setFloat ("breathPreserve", 90.0f); setChoice ("voiceMode", 0, 3); break;
+        case 3: setFloat ("pitchSemitones", 1.0f); setFloat ("formantSemitones", -0.5f); setFloat ("pitchDynamics", 48.0f); setFloat ("tracking", 78.0f); setFloat ("breathPreserve", 55.0f); setChoice ("voiceMode", 1, 3); break;
+        case 4: setFloat ("pitchSemitones", 4.0f); setFloat ("formantSemitones", 3.0f); setFloat ("pitchDynamics", 90.0f); setFloat ("tracking", 50.0f); setFloat ("breathPreserve", 70.0f); setChoice ("voiceMode", 2, 3); break;
+        default: setFloat ("pitchSemitones", 0.0f); setFloat ("formantSemitones", 0.0f); setFloat ("pitchDynamics", 75.0f); setFloat ("tracking", 70.0f); setFloat ("breathPreserve", 65.0f); setChoice ("voiceMode", 0, 3); break;
     }
 }
 

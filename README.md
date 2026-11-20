@@ -1,10 +1,10 @@
-# VoiceMorph — JUCE VST3 Prototype 0.8.2
+# VoiceMorph — Windows x64 VST3 experimental beta 0.8.3
 
 VoiceMorph is an experimental Windows x64 VST3 voice-transformation plug-in. It uses pitch/formant processing and a hybrid periodic/residual signal path. This is an early prototype: transformed speech can still sound robotic or warbly.
 
 ## Download and install
 
-Get the latest Windows x64 installer from [GitHub Releases](https://github.com/mamepaseri/VoiceMorph/releases/latest). Download the `VoiceMorph-Setup-x64-<version>.zip` asset, extract it, then run the included installer. The installer offers per-user installation by default and can also install for all users. Close your DAW before installing or uninstalling, then rescan its VST3 plug-ins.
+Get the latest Windows x64 installer from [GitHub Releases](https://github.com/mamepaseri/VoiceMorph/releases/latest). Download the direct [Windows x64 installer EXE](https://github.com/mamepaseri/VoiceMorph/releases/download/v0.8.3/VoiceMorph-Setup-x64-0.8.3.exe), or the [ZIP copy](https://github.com/mamepaseri/VoiceMorph/releases/download/v0.8.3/VoiceMorph-Setup-x64-0.8.3.zip). The installer offers per-user installation by default and can also install for all users. Close your DAW before installing or uninstalling, then rescan its VST3 plug-ins.
 
 The installer is unsigned, so Windows SmartScreen may show an unfamiliar-app warning. It installs the built `VoiceMorph.vst3` bundle and includes an uninstaller.
 
@@ -12,8 +12,15 @@ The installer is unsigned, so Windows SmartScreen may show an unfamiliar-app war
 
 After the Windows x64 VST3 build (Signalsmith ON and OFF) and DSP test suite both pass on `main`, the packaging workflow takes the Signalsmith ON artifact, validates and smoke-tests the installer, then publishes one versioned ZIP to GitHub Releases. The release version comes from `project(VERSION ...)` in `CMakeLists.txt`. Existing tags are never overwritten, and repeat builds for an already published version do not create duplicate downloadable artifacts. A package-only or manual Actions run cannot publish unless it refers to a successful main-branch Windows VST3 build and the same commit has passing DSP tests.
 
-## 0.8.2 changes
+## 0.8.3 changes
 
+- Added an independent **Pitch Dynamics** dial. It changes phrase-relative voiced F0 movement without changing the main Pitch semitone setting.
+- Range: 0% = 1.00x contour movement; 100% = 1.45x; default = 75%.
+- Uses a slow log-F0 phrase baseline, voiced-confidence weighting, one-frame jump rejection for large F0 excursions, and 45/75 ms smoothing.
+- The central pitch monitor plots the adjusted target contour; Tracking and Breath remain independent controls.
+- The dark theme now uses a graphite/cyan accent; Pitch Dynamics includes a numeric percentage readout and tooltip.
+- Added synthetic tests for neutral contour, upward movement, dynamic span, single-frame octave outliers, and unvoiced release.
+- A/B measurement details and caveats: [docs/ROVEE_COMPARISON.md](docs/ROVEE_COMPARISON.md).
 - Added dark and light interface themes.
 - Added a central three-second monitor for detected input F0 and the pitch-shift target, with gaps during unvoiced sections.
 - Added value-range arcs and current-value markers to the pitch, formant, and mix controls.
@@ -27,6 +34,9 @@ After the Windows x64 VST3 build (Signalsmith ON and OFF) and DSP test suite bot
 
 ## Controls and signal path
 
+- **Pitch:** fixed semitone shift.
+- **Pitch Dynamics:** scales voiced pitch movement relative to a slow local phrase baseline; it is not a static pitch increase or neural speaker-identity conversion.
+
 - **Pitch / Formant:** control pitch and spectral-envelope shift through the optional Signalsmith Stretch engine.
 - **Voice Mix:** blend the processed voice path with the delayed dry reference. At 100%, only transformed audio and explicitly preserved residual detail are routed.
 - **Breath Preserve / Transient Preserve:** control aperiodic residual and detected transient content on the wet path.
@@ -38,9 +48,11 @@ The processor analyzes incoming audio, separates a periodic candidate from a res
 
 ## Validation and limitations
 
-The release workflow requires successful Windows x64 VST3 builds with Signalsmith enabled and disabled, passing DSP tests, a validated installer payload, and a silent install/uninstall smoke test.
+The release workflow requires successful Windows x64 VST3 builds with Signalsmith enabled and disabled, passing DSP tests, a validated installer payload, and a silent install/uninstall smoke test. Releases include a direct installer EXE, ZIP copy and SHA-256 checksum manifest.
 
-These checks do not establish natural voice quality. The pitch/residual algorithm may still produce robotic or warbly artifacts, especially on real speech. No Sonar listening validation has been performed. Parameter mapping is covered by focused tests, but full APVTS state save/restore does not have a dedicated round-trip regression test.
+The two supplied processed renders measured F0 medians of 244.5 Hz (RoVee) and 248.1 Hz (VoiceMorph 0.8.1). Their 10–90% spans were 3.68 and 2.53 semitones, respectively. The clips are not confirmed as the same dry take or sample-aligned, so the comparison is suggestive rather than controlled. It motivated an adjustable contour control; it does not prove an audio-quality match.
+
+These checks do not establish natural voice quality. Pitch Dynamics is tested against synthetic contours, not the user's real voice. The hybrid pitch/residual path and Signalsmith engine may still sound robotic or warbly. No Cakewalk Sonar / Zoom UAC-232 listening validation has been performed.
 
 ## Build on Windows
 

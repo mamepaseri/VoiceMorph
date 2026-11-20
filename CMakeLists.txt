@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(VoiceMorph VERSION 0.8.2 LANGUAGES C CXX)
+project(VoiceMorph VERSION 0.8.3 LANGUAGES C CXX)
 
 include(FetchContent)
 
@@ -66,6 +66,8 @@ target_sources(VoiceMorph PRIVATE
     Source/Dsp/WorldSpeechAnalyzer.h
     Source/Dsp/SpeechFeatureAnalyzer.cpp
     Source/Dsp/SpeechFeatureAnalyzer.h
+    Source/Dsp/PitchContourMapper.cpp
+    Source/Dsp/PitchContourMapper.h
     Source/Dsp/AdaptivePeriodicSplitter.cpp
     Source/Dsp/AdaptivePeriodicSplitter.h
     Source/Dsp/LatencyAlignedRecombiner.cpp

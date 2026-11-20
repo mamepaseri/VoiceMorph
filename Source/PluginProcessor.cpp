@@ -55,6 +55,8 @@ VoiceMorphAudioProcessor::APVTS::ParameterLayout VoiceMorphAudioProcessor::creat
         juce::NormalisableRange<float> (-12.0f, 12.0f, 0.01f), 0.0f));
     layout.add (std::make_unique<Float> (juce::ParameterID { "formantSemitones", 1 }, "Formant",
         juce::NormalisableRange<float> (-6.0f, 6.0f, 0.01f), 0.0f));
+    layout.add (std::make_unique<Float> (juce::ParameterID { "pitchDynamics", 1 }, "Pitch Dynamics",
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 75.0f));
     layout.add (std::make_unique<Float> (juce::ParameterID { "tracking", 1 }, "Tracking",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 70.0f));
     layout.add (std::make_unique<Float> (juce::ParameterID { "breathPreserve", 1 }, "Breath Preserve",
@@ -101,6 +103,8 @@ void VoiceMorphAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
     lpPreviousOutput.fill (0.0f);
     detectorEnvelope.fill (0.0f);
     speechAnalyzer.prepare (currentSampleRate);
+    pitchContourMapper.prepare (currentSampleRate);
+    currentPitchDynamicsOffset = 0.0f;
     periodicSplitter.prepare (currentSampleRate);
 
     hybridMaximumBlockSize = juce::jmax (1, samplesPerBlock);
@@ -166,6 +170,7 @@ void VoiceMorphAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     const float inputGain = juce::Decibels::decibelsToGain (readParam (apvts, "inputGain", 0.0f));
     const float outputGain = juce::Decibels::decibelsToGain (readParam (apvts, "outputGain", 0.0f));
     const float pitchSemitones = readParam (apvts, "pitchSemitones", 0.0f);
+    const float pitchDynamics = readParam (apvts, "pitchDynamics", 75.0f);
     const float formantSemitones = readParam (apvts, "formantSemitones", 0.0f);
     const float voiceMix = readParam (apvts, "voiceMix", 100.0f);
     const float breathPreserve = readParam (apvts, "breathPreserve", 65.0f);
@@ -181,17 +186,21 @@ void VoiceMorphAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     const int rangeIndex = static_cast<int> (readParam (apvts, "deEssRange", 2.0f));
     updateDetectorBand (rangeIndex);
     speechAnalyzer.setTracking (tracking);
+    pitchContourMapper.setDynamicsPercent (pitchDynamics);
 
     const float attackCoeff = std::exp (-1.0f / (static_cast<float> (currentSampleRate) * juce::jmax (0.0005f, attackMs * 0.001f)));
     const float releaseCoeff = std::exp (-1.0f / (static_cast<float> (currentSampleRate) * juce::jmax (0.001f, releaseMs * 0.001f)));
     const float thresholdDb = -38.0f + (1.0f - intensity) * 18.0f;
     const float maxReductionDb = 12.0f * intensity;
 
+    const int controlHopSamples = juce::jmax (1, static_cast<int> (std::lround (currentSampleRate * 0.010)));
+
     // Hosts occasionally provide a block larger than prepareToPlay() advertised.
-    // Process it in preallocated chunks instead of allocating on the audio thread.
+    // Chunking at 10 ms also keeps pitch-contour control updates time-local.
     for (int offset = 0; offset < numSamples; )
     {
-        const int count = juce::jmin (hybridMaximumBlockSize, numSamples - offset);
+        const int count = juce::jmin (juce::jmin (hybridMaximumBlockSize, controlHopSamples),
+                                      numSamples - offset);
 
         for (int sample = 0; sample < count; ++sample)
         {
@@ -225,12 +234,14 @@ void VoiceMorphAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
 
             if (newFeatureFrame)
             {
+                currentPitchDynamicsOffset = pitchContourMapper.processFrame (speech.pitchHz, speech.voiced);
+                const float effectivePitchSemitones = pitchSemitones + currentPitchDynamicsOffset;
                 const bool hasStablePitch = speech.pitchHz >= 55.0f && speech.pitchHz <= 880.0f
                                          && speech.voiced >= 0.25f;
                 const float inputF0 = hasStablePitch ? speech.pitchHz : 0.0f;
                 const float targetF0 = hasStablePitch
                     ? static_cast<float> (voice_morph::parameter_mapping::shiftedFrequencyFromSemitones (
-                          speech.pitchHz, pitchSemitones))
+                          speech.pitchHz, effectivePitchSemitones))
                     : 0.0f;
                 const size_t contourWrite = pitchContourWriteIndex.load (std::memory_order_relaxed);
                 inputPitchContour[contourWrite].store (inputF0, std::memory_order_relaxed);
@@ -261,7 +272,8 @@ void VoiceMorphAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         // those regions out of the transformed periodic stem.
         const float trackedPitch = speechAnalyzer.getFeatures().pitchHz;
         const float formantBase = trackedPitch >= 65.0f && trackedPitch <= 450.0f ? trackedPitch : 140.0f;
-        hybridVoiceEngine.setParameters (pitchSemitones, formantSemitones, formantBase);
+        hybridVoiceEngine.setParameters (pitchSemitones + currentPitchDynamicsOffset,
+                                         formantSemitones, formantBase);
         const bool hybridProcessed = hybridVoiceEngine.processBlock (
             hybridInputPointers.data(), hybridOutputPointers.data(), channels, count,
             framePitch.data(), frameVoiced.data(), frameAperiodic.data(), voiceMix, bypass,

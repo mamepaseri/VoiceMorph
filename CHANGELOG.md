@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.8.3 — 2026-11-20 — Experimental beta
+
+- Added an independent **Pitch Dynamics** control. It scales voiced F0 movement around a slow phrase baseline, separately from fixed Pitch semitones.
+- Dynamics range is 1.00x at 0% to a bounded 1.45x at 100%; default is 75%.
+- Added voiced-confidence weighting, a one-frame hold for large F0 jumps until a confirming frame, and smoothed pitch modulation (45 ms attack / 75 ms release).
+- Split processing into at-most-10 ms control blocks so pitch transposition can follow the analyzer updates more locally.
+- Added a Pitch Dynamics dial to the lower GUI row, a numeric percentage readout, compact Voice Mode buttons, and a graphite/cyan dark theme.
+- Extended the pitch contour monitor target with the effective dynamic offset. Presets now set their own Dynamics amount.
+- Added synthetic DSP regression coverage for neutral mapping, upward F0 movement, contour-span expansion, isolated octave-like jumps, and unvoiced release.
+- The supplied renders measured close median F0 (244.5 / 248.1 Hz) but different 10–90% spans (3.68 / 2.53 semitones; RoVee / VoiceMorph 0.8.1). Because the source takes are not confirmed identical or aligned, this supports an adjustable control rather than a direct sound-quality claim. See [docs/ROVEE_COMPARISON.md](docs/ROVEE_COMPARISON.md).
+
+**Experimental limitations:** This is a contour-shaping update, not a new speaker-identity model. The periodic/residual splitter and Signalsmith path remain prototype quality. No Cakewalk Sonar / Zoom UAC-232 real-voice audition was performed; robotic or warbly artifacts may remain.
+
+## 0.8.2 — 2026-11-20
 ## 0.8.2 — 2026-11-20
 
 - Redesigned the plug-in editor with dark/light themes, a three-second pitch monitor, value arcs, and a separate resizable Advanced window.

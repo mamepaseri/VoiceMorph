@@ -4,6 +4,7 @@
 #include <atomic>
 #include <vector>
 #include "Dsp/SpeechFeatureAnalyzer.h"
+#include "Dsp/PitchContourMapper.h"
 #include "Dsp/AdaptivePeriodicSplitter.h"
 #include "Dsp/SignalsmithHybridVoiceEngine.h"
 
@@ -61,6 +62,8 @@ private:
     std::atomic<size_t> pitchContourWriteIndex { 0 };
 
     SpeechFeatureAnalyzer speechAnalyzer;
+    PitchContourMapper pitchContourMapper;
+    float currentPitchDynamicsOffset = 0.0f;
     AdaptivePeriodicSplitter periodicSplitter;
     SignalsmithHybridVoiceEngine hybridVoiceEngine;
     std::vector<float> framePitch;

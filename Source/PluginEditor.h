@@ -58,10 +58,10 @@ private:
                     advancedButton { "ADVANCED" }, darkThemeButton { "DARK" }, lightThemeButton { "LIGHT" };
     juce::ToggleButton bypassButton { "BYPASS" }, consonantButton { "CONSONANT PRESERVE" }, transientButton { "TRANSIENT PRESERVE" }, deEssBypassButton { "DE-ESSER OFF" };
     juce::Slider inputGainSlider, outputGainSlider, voiceMixSlider, pitchSlider, formantSlider,
-                 trackingSlider, breathSlider, deEssIntensitySlider, deEssMixSlider;
-    juce::TextButton naturalModeButton { "NATURAL" }, balancedModeButton { "BALANCED" }, preciseModeButton { "PRECISE" };
+                 trackingSlider, pitchDynamicsSlider, breathSlider, deEssIntensitySlider, deEssMixSlider;
+    juce::TextButton naturalModeButton { "NAT" }, balancedModeButton { "BAL" }, preciseModeButton { "PRE" };
     std::unique_ptr<juce::DocumentWindow> advancedWindow;
-    juce::Label inputLabel, outputLabel, pitchLabel, formantLabel, trackingLabel, breathLabel,
+    juce::Label inputLabel, outputLabel, pitchLabel, formantLabel, trackingLabel, pitchDynamicsLabel, breathLabel,
                mixLabel, voiceModeLabel, deEssLabel, deEssMixLabel, deEssRangeLabel, qualityLabel;
     PitchContourMonitor pitchMonitor;
 
@@ -69,7 +69,7 @@ private:
     using ButtonAttachment = VoiceMorphAudioProcessor::APVTS::ButtonAttachment;
     using ComboAttachment = VoiceMorphAudioProcessor::APVTS::ComboBoxAttachment;
     std::unique_ptr<SliderAttachment> inputAttachment, outputAttachment, voiceMixAttachment,
-        pitchAttachment, formantAttachment, trackingAttachment, breathAttachment,
+        pitchAttachment, formantAttachment, trackingAttachment, pitchDynamicsAttachment, breathAttachment,
         deEssIntensityAttachment, deEssMixAttachment;
     std::unique_ptr<ButtonAttachment> bypassAttachment, consonantAttachment, transientAttachment, deEssBypassAttachment;
     std::unique_ptr<ComboAttachment> deEssRangeAttachment, qualityAttachment;

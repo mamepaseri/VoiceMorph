@@ -1,4 +1,5 @@
 #include "../Source/Dsp/SpeechFeatureAnalyzer.h"
+#include "../Source/Dsp/PitchContourMapper.h"
 #include "../Source/Dsp/AdaptivePeriodicSplitter.h"
 #include "../Source/Dsp/LatencyAlignedRecombiner.h"
 #include "../Source/Dsp/HybridVoicePath.h"
@@ -889,6 +890,91 @@ int main()
                        + " Hz splitter retains low-F0 periodicity (residual ratio "
                        + std::to_string (rateResidualRatio) + ")");
     }
+
+    PitchContourMapper dynamicsNeutral;
+    PitchContourMapper dynamicsFull;
+    dynamicsNeutral.prepare (sampleRate);
+    dynamicsFull.prepare (sampleRate);
+    dynamicsNeutral.setDynamicsPercent (0.0f);
+    dynamicsFull.setDynamicsPercent (100.0f);
+    for (int frame = 0; frame < 250; ++frame)
+    {
+        dynamicsNeutral.processFrame (220.0f, 1.0f);
+        dynamicsFull.processFrame (220.0f, 1.0f);
+    }
+    ok &= require (std::abs (dynamicsNeutral.getExpansionRatio() - 1.0f) < 1.0e-6f
+                   && std::abs (dynamicsFull.getExpansionRatio() - 1.45f) < 1.0e-6f,
+                   "Pitch Dynamics maps 0% to neutral and 100% to a bounded 1.45x contour expansion");
+
+    for (int frame = 0; frame < 30; ++frame)
+        dynamicsFull.processFrame (277.18f, 1.0f);
+    ok &= require (dynamicsFull.getOffsetSemitones() > 1.0f
+                   && dynamicsFull.getOffsetSemitones() < 4.0f,
+                   "Pitch Dynamics follows an upward voiced F0 movement with a smooth positive offset");
+
+    PitchContourMapper octaveGuard;
+    octaveGuard.prepare (sampleRate);
+    octaveGuard.setDynamicsPercent (100.0f);
+    for (int frame = 0; frame < 250; ++frame)
+        octaveGuard.processFrame (220.0f, 1.0f);
+    const float offsetBeforeOutlier = octaveGuard.getOffsetSemitones();
+    octaveGuard.processFrame (440.0f, 1.0f);
+    ok &= require (std::abs (octaveGuard.getOffsetSemitones() - offsetBeforeOutlier) < 0.10f,
+                   "Pitch Dynamics rejects a one-frame octave F0 outlier");
+
+    PitchContourMapper contourNeutral;
+    PitchContourMapper contourExpanded;
+    contourNeutral.prepare (sampleRate);
+    contourExpanded.prepare (sampleRate);
+    contourNeutral.setDynamicsPercent (0.0f);
+    contourExpanded.setDynamicsPercent (100.0f);
+    for (int frame = 0; frame < 250; ++frame)
+    {
+        contourNeutral.processFrame (220.0f, 1.0f);
+        contourExpanded.processFrame (220.0f, 1.0f);
+    }
+    std::vector<float> sourceContour, neutralContour, expandedContour;
+    for (int frame = 0; frame < 400; ++frame)
+    {
+        const float inputSemitones = 1.5f * std::sin (2.0f * static_cast<float> (pi)
+                                     * static_cast<float> (frame) / 120.0f);
+        const float inputHz = 220.0f * std::exp2 (inputSemitones / 12.0f);
+        const float neutralOffset = contourNeutral.processFrame (inputHz, 1.0f);
+        const float expandedOffset = contourExpanded.processFrame (inputHz, 1.0f);
+        if (frame > 80)
+        {
+            sourceContour.push_back (inputSemitones);
+            neutralContour.push_back (inputSemitones + neutralOffset);
+            expandedContour.push_back (inputSemitones + expandedOffset);
+        }
+    }
+    auto percentileSpan = [] (std::vector<float> values)
+    {
+        std::sort (values.begin(), values.end());
+        const auto low = static_cast<std::size_t> (0.05 * static_cast<double> (values.size() - 1));
+        const auto high = static_cast<std::size_t> (0.95 * static_cast<double> (values.size() - 1));
+        return values[high] - values[low];
+    };
+    const float sourceSpan = percentileSpan (sourceContour);
+    const float neutralSpan = percentileSpan (neutralContour);
+    const float expandedSpan = percentileSpan (expandedContour);
+    ok &= require (std::abs (neutralSpan - sourceSpan) < 0.15f
+                   && expandedSpan > sourceSpan * 1.15f,
+                   "Pitch Dynamics preserves neutral contour and expands expressive F0 movement");
+
+    PitchContourMapper unvoicedRelease;
+    unvoicedRelease.prepare (sampleRate);
+    unvoicedRelease.setDynamicsPercent (100.0f);
+    for (int frame = 0; frame < 250; ++frame)
+        unvoicedRelease.processFrame (220.0f, 1.0f);
+    for (int frame = 0; frame < 30; ++frame)
+        unvoicedRelease.processFrame (277.18f, 1.0f);
+    const float offsetBeforeUnvoiced = unvoicedRelease.getOffsetSemitones();
+    for (int frame = 0; frame < 30; ++frame)
+        unvoicedRelease.processFrame (0.0f, 0.0f);
+    ok &= require (offsetBeforeUnvoiced > 0.8f
+                   && std::abs (unvoicedRelease.getOffsetSemitones()) < 0.20f,
+                   "Pitch Dynamics smoothly releases back to neutral in unvoiced gaps");
 
     return ok ? 0 : 1;
 }

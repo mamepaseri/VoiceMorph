@@ -4,6 +4,7 @@ project(VoiceMorphSpeechFeatureTests LANGUAGES CXX)
 add_executable(speech_feature_test
     speech_feature_test.cpp
     ../Source/Dsp/SpeechFeatureAnalyzer.cpp
+    ../Source/Dsp/PitchContourMapper.cpp
     ../Source/Dsp/AdaptivePeriodicSplitter.cpp
     ../Source/Dsp/LatencyAlignedRecombiner.cpp
     ../Source/Dsp/HybridVoicePath.cpp
