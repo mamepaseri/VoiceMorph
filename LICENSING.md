@@ -1,16 +1,21 @@
-# VoiceMorph licensing route — decision pending
+# VoiceMorph licensing
 
-This repository is public and the project has a public v0.8.3 prerelease. Public visibility alone does not grant downstream users a licence to reuse the original VoiceMorph source. This file records the current status; it does not make a license election.
+## Selected route
 
-The current JUCE-based plug-in target fetches JUCE 8.0.6. JUCE is dual-licensed under AGPLv3 or the JUCE 8 EULA. The owner’s interim direction is to keep this repository public and pursue a no-cost route.
+The VoiceMorph project owner selected the GNU Affero General Public License version 3 (AGPL-3.0-only) for the public source repository and the JUCE-based product, effective for the stabilization candidate containing this notice. The exact license text is in LICENSE.
 
-Two routes are being evaluated:
+JUCE 8.0.6 is used under its AGPLv3 option, not under the JUCE Starter/Indie/Pro EULA. Do not combine or advertise the two routes for the same product. This route has no JUCE Starter revenue cap, but AGPL obligations apply when source and binaries are conveyed.
 
-1. **JUCE Starter EULA:** the current JUCE 8 terms list this as free/perpetual with a $20,000 annual revenue/funding limit. Verify the license owner’s revenue/funding scope, required Framework User seats, and exact product distribution terms. This route is not an AGPL license for VoiceMorph; keep the source license status explicit. See docs/LICENSING_ROUTE_REVIEW.md.
-2. **JUCE under AGPLv3:** requires an explicit AGPLv3 license for the complete covered VoiceMorph work, appropriate rights from contributors, required notices, and corresponding source delivery for every binary release. See docs/LICENSING_ROUTE_REVIEW.md.
+## Release requirements
 
-These are alternative licensing routes for the JUCE-based product. The JUCE 8 EULA restricts open-source licensing that would require JUCE or software combined with JUCE to be source-disclosed, derivative-work licensed, or freely redistributable. Do not combine the JUCE commercial EULA route with an AGPL license for the same combined product without a reviewed basis.
+- Keep the complete corresponding source for every binary available at no charge, including the exact VoiceMorph source, build scripts, JUCE source and enabled dependency revisions needed to generate, install, run, and modify the released plug-in.
+- Put a clear link to that exact source archive beside every VST3 installer/ZIP and maintain availability while the binary is offered.
+- Include LICENSE and THIRD_PARTY_NOTICES in the repository and release materials. Preserve upstream notices and conditions for Signalsmith Stretch (MIT) and WORLD (modified BSD).
+- Provide appropriate AGPL legal notices in the plug-in's interactive interface and a visible route to the license and source.
+- Do not impose DRM or terms that restrict users' AGPL rights to modify and redistribute the plug-in.
 
-Until the owner confirms eligibility for Starter or elects AGPLv3 and the repository/release materials are made consistent with that route, no formal GA or further binary release is approved by this project checklist. This status does not retroactively alter the existing public v0.8.3 prerelease.
+The selected route does not itself validate contributor rights, binary/source correspondence, installer contents, or release workflow. Those are checked per candidate in docs/DISTRIBUTION_COMPLIANCE.md and docs/STABILIZATION_ACCEPTANCE.md.
 
-See THIRD_PARTY_NOTICES.md for the dependency inventory. Signalsmith Stretch is MIT-licensed and WORLD is modified BSD; their notices and conditions must be preserved. Recheck the actual enabled dependency set when building a release.
+The existing public v0.8.3 release assets and tag are preserved; this branch does not rebuild or replace them. Future release candidates must pass the AGPL source and notice gates before publication.
+
+See THIRD_PARTY_NOTICES.md for the dependency inventory and docs/LICENSING_ROUTE_REVIEW.md for the route comparison.
