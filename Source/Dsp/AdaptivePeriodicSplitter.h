@@ -45,9 +45,13 @@ private:
     float currentDelaySamples = 0.0f;
     float delaySmoothingCoefficient = 0.0f;
     float correlationSmoothingCoefficient = 0.0f;
+    float fastCorrelationSmoothingCoefficient = 0.0f;
     float correlatedInputEnergy = 0.0f;
     float correlatedDelayEnergy = 0.0f;
     float correlatedCrossEnergy = 0.0f;
+    float fastCorrelatedInputEnergy = 0.0f;
+    float fastCorrelatedDelayEnergy = 0.0f;
+    float fastCorrelatedCrossEnergy = 0.0f;
     float amplitudeAttackCoefficient = 0.0f;
     float amplitudeReleaseCoefficient = 0.0f;
     float amplitudeEnvelope = 0.0f;

@@ -13,7 +13,10 @@ void AdaptivePeriodicSplitter::prepare (double sampleRate) noexcept
 {
     sampleRateHz = std::clamp (sampleRate, 8000.0, 192000.0);
     delaySmoothingCoefficient = 1.0f - std::exp (-1.0f / (static_cast<float> (sampleRateHz) * 0.008f));
-    correlationSmoothingCoefficient = 1.0f - std::exp (-1.0f / (static_cast<float> (sampleRateHz) * 0.004f));
+    // The slower estimate stabilizes periodic splitting across vibrato and pitch jitter.
+    correlationSmoothingCoefficient = 1.0f - std::exp (-1.0f / (static_cast<float> (sampleRateHz) * 0.012f));
+    // A faster estimate releases the residual safety path at voiced-to-fricative boundaries.
+    fastCorrelationSmoothingCoefficient = 1.0f - std::exp (-1.0f / (static_cast<float> (sampleRateHz) * 0.004f));
     amplitudeAttackCoefficient = 1.0f - std::exp (-1.0f / (static_cast<float> (sampleRateHz) * 0.002f));
     amplitudeReleaseCoefficient = 1.0f - std::exp (-1.0f / (static_cast<float> (sampleRateHz) * 0.050f));
     reset();
@@ -28,6 +31,9 @@ void AdaptivePeriodicSplitter::reset() noexcept
     correlatedInputEnergy = 0.0f;
     correlatedDelayEnergy = 0.0f;
     correlatedCrossEnergy = 0.0f;
+    fastCorrelatedInputEnergy = 0.0f;
+    fastCorrelatedDelayEnergy = 0.0f;
+    fastCorrelatedCrossEnergy = 0.0f;
     amplitudeEnvelope = 0.0f;
     previousInput = 0.0f;
 }
@@ -90,6 +96,7 @@ SplitSample AdaptivePeriodicSplitter::processSample (float input,
     const int requiredHistory = static_cast<int> (std::ceil (currentDelaySamples)) + 4;
     float periodicEstimate = 0.0f;
     float localPeriodicity = 0.0f;
+    float fastLocalPeriodicity = 0.0f;
     if (validPitch && samplesWritten >= static_cast<std::size_t> (requiredHistory))
     {
         const float delayed = readFractionalDelay (currentDelaySamples);
@@ -108,6 +115,16 @@ SplitSample AdaptivePeriodicSplitter::processSample (float input,
         const float denominator = std::sqrt (correlatedInputEnergy * correlatedDelayEnergy + 1.0e-12f);
         localPeriodicity = denominator > 1.0e-6f
             ? std::clamp (correlatedCrossEnergy / denominator, 0.0f, 1.0f) : 0.0f;
+
+        // This faster estimate only governs residual safety. Keeping it separate
+        // avoids attenuating a newly detected fricative while retaining stable voiced splitting.
+        const float fastCorrAlpha = fastCorrelationSmoothingCoefficient;
+        fastCorrelatedInputEnergy += fastCorrAlpha * (safeInput * safeInput - fastCorrelatedInputEnergy);
+        fastCorrelatedDelayEnergy += fastCorrAlpha * (delayed * delayed - fastCorrelatedDelayEnergy);
+        fastCorrelatedCrossEnergy += fastCorrAlpha * (safeInput * delayed - fastCorrelatedCrossEnergy);
+        const float fastDenominator = std::sqrt (fastCorrelatedInputEnergy * fastCorrelatedDelayEnergy + 1.0e-12f);
+        fastLocalPeriodicity = fastDenominator > 1.0e-6f
+            ? std::clamp (fastCorrelatedCrossEnergy / fastDenominator, 0.0f, 1.0f) : 0.0f;
     }
     else
     {
@@ -115,6 +132,9 @@ SplitSample AdaptivePeriodicSplitter::processSample (float input,
         correlatedInputEnergy = 0.0f;
         correlatedDelayEnergy = 0.0f;
         correlatedCrossEnergy = 0.0f;
+        fastCorrelatedInputEnergy = 0.0f;
+        fastCorrelatedDelayEnergy = 0.0f;
+        fastCorrelatedCrossEnergy = 0.0f;
     }
 
     const float trackerConfidence = validPitch && std::isfinite (voiceConfidence)
@@ -122,8 +142,9 @@ SplitSample AdaptivePeriodicSplitter::processSample (float input,
     const float protection = std::clamp (std::isfinite (aperiodicProtection)
         ? aperiodicProtection : 0.0f, 0.0f, 1.0f);
     const float correlationGate = std::clamp ((localPeriodicity - 0.18f) / 0.72f, 0.0f, 1.0f);
+    const float fastCorrelationGate = std::clamp ((fastLocalPeriodicity - 0.18f) / 0.72f, 0.0f, 1.0f);
     const float transientGate = preserveTransients ? (1.0f - sampleTransient) : 1.0f;
-    const float classificationConfidence = trackerConfidence * correlationGate;
+    const float classificationConfidence = trackerConfidence * std::min (correlationGate, fastCorrelationGate);
     const float confidence = trackerConfidence * (1.0f - protection) * transientGate * correlationGate;
     const float periodic = confidence * periodicEstimate;
     const float residual = safeInput - periodic;

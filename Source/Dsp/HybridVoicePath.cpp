@@ -119,8 +119,8 @@ bool HybridVoicePath::processBlock (const float* const* input,
             // check is unsure. The square curve fades this safety path only as
             // classification confidence becomes strong, avoiding a gap while
             // the pitch stem is entering or leaving the transform.
-            const float confidenceResidualGain = 1.0f
-                - stems.classificationConfidence * stems.classificationConfidence;
+            const float confidenceSquared = stems.classificationConfidence * stems.classificationConfidence;
+            const float confidenceResidualGain = 1.0f - confidenceSquared * confidenceSquared;
             const float residualGain = std::clamp (
                 std::max (std::max (breathResidualGain, transientResidualGain), confidenceResidualGain),
                 0.0f, 1.0f);
