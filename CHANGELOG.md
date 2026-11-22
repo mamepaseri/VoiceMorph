@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.4 — 2026-11-23 — Experimental beta
+
+- Embedded Turbo Racers Regular in the plug-in so the dashboard lettering is consistent across systems and DAWs.
+- Refined the rotary bezel with a chrome/aluminum metal ring, a compact cyan value tab, and a thinner amount arc around the LCD edge.
+- Restored the full NATURAL / BALANCED / PRECISE Voice Mode labels. Kept the Input and Output faders equal in width; Voice Mix remains smaller than the matching Tracking and Breath dials, with no numeric readout inside them.
+- Windows x64 VST3 builds passed with Signalsmith enabled and disabled. DSP tests and installer install/uninstall smoke checks passed.
+
+**Experimental limitations:** This visual release does not change the pitch-shifting algorithm or establish natural voice quality. No Cakewalk Sonar / Zoom UAC-232 listening validation was performed; robotic or warbly artifacts may remain.
+
+
 ## 0.8.3 — 2026-11-20 — Experimental beta
 
 - Added an independent **Pitch Dynamics** control. It scales voiced F0 movement around a slow phrase baseline, separately from fixed Pitch semitones.
