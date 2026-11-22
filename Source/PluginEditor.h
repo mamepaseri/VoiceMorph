@@ -8,6 +8,8 @@ public:
     VoiceMorphLookAndFeel();
     void setLightTheme (bool shouldUseLightTheme);
     bool isLightTheme() const noexcept { return lightTheme; }
+    juce::Typeface::Ptr getTypefaceForFont (const juce::Font& font) override;
+    juce::FontOptions themedFont (float height, int styleFlags = juce::Font::plain) const;
     void drawRotarySlider (juce::Graphics&, int, int, int, int, float, float, float, juce::Slider&) override;
     void drawLinearSlider (juce::Graphics&, int, int, int, int, float, float, float,
                            juce::Slider::SliderStyle, juce::Slider&) override;
@@ -15,6 +17,7 @@ public:
                                bool, bool) override;
     void drawToggleButton (juce::Graphics&, juce::ToggleButton&, bool, bool) override;
 private:
+    juce::Typeface::Ptr turboTypeface;
     bool lightTheme = false;
 };
 
@@ -59,7 +62,7 @@ private:
     juce::ToggleButton bypassButton { "BYPASS" }, consonantButton { "CONSONANT PRESERVE" }, transientButton { "TRANSIENT PRESERVE" }, deEssBypassButton { "DE-ESSER OFF" };
     juce::Slider inputGainSlider, outputGainSlider, voiceMixSlider, pitchSlider, formantSlider,
                  trackingSlider, pitchDynamicsSlider, breathSlider, deEssIntensitySlider, deEssMixSlider;
-    juce::TextButton naturalModeButton { "NAT" }, balancedModeButton { "BAL" }, preciseModeButton { "PRE" };
+    juce::TextButton naturalModeButton { "NATURAL" }, balancedModeButton { "BALANCED" }, preciseModeButton { "PRECISE" };
     std::unique_ptr<juce::DocumentWindow> advancedWindow;
     juce::Label inputLabel, outputLabel, pitchLabel, formantLabel, trackingLabel, pitchDynamicsLabel, breathLabel,
                mixLabel, voiceModeLabel, deEssLabel, deEssMixLabel, deEssRangeLabel, qualityLabel;

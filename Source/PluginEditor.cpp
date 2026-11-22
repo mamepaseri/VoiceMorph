@@ -1,5 +1,6 @@
 #include "PluginEditor.h"
 #include "ParameterMapping.h"
+#include <BinaryData.h>
 
 namespace
 {
@@ -68,7 +69,7 @@ namespace
             g.fillRoundedRectangle (bounds.getX() + 16.0f, bounds.getY() + 1.0f,
                                     42.0f, 2.0f, 1.0f);
             g.setColour (colours.text);
-            g.setFont (juce::FontOptions (16.0f, juce::Font::bold));
+            g.setFont (lookAndFeel.themedFont (16.0f, juce::Font::bold));
             g.drawText ("ADVANCED PROCESSING", getLocalBounds().reduced (18, 12).removeFromTop (28),
                         juce::Justification::left);
         }
@@ -133,7 +134,20 @@ namespace
 
 VoiceMorphLookAndFeel::VoiceMorphLookAndFeel()
 {
+    turboTypeface = juce::Typeface::createSystemTypefaceFor (
+        BinaryData::TurboRacersRegular_nA0zg_ttf, BinaryData::TurboRacersRegular_nA0zg_ttfSize);
     setLightTheme (false);
+}
+
+juce::Typeface::Ptr VoiceMorphLookAndFeel::getTypefaceForFont (const juce::Font& font)
+{
+    juce::ignoreUnused (font);
+    return turboTypeface;
+}
+
+juce::FontOptions VoiceMorphLookAndFeel::themedFont (float height, int styleFlags) const
+{
+    return juce::FontOptions (height, styleFlags).withTypeface (turboTypeface);
 }
 
 void VoiceMorphLookAndFeel::setLightTheme (bool shouldUseLightTheme)
@@ -187,9 +201,16 @@ void VoiceMorphLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, i
 
     const float ringOuter = side * 0.393f;
     const float ringInner = side * 0.326f;
-    g.setColour (lightTheme ? juce::Colour (0xffc4ccd0) : juce::Colour (0xff111722));
+    juce::ColourGradient bezel (lightTheme ? juce::Colour (0xfff0f3f4) : juce::Colour (0xff596575),
+                                cx - ringOuter, cy - ringOuter,
+                                lightTheme ? juce::Colour (0xff9aa5aa) : juce::Colour (0xff202733),
+                                cx + ringOuter, cy + ringOuter, false);
+    g.setGradientFill (bezel);
     g.fillEllipse (cx - ringOuter, cy - ringOuter, ringOuter * 2.0f, ringOuter * 2.0f);
-    g.setColour (lightTheme ? juce::Colour (0xff849097) : juce::Colour (0xff070a10));
+    g.setColour (lightTheme ? juce::Colour (0xfff6f8f9) : juce::Colour (0xff6d7889).withAlpha (0.85f));
+    g.drawEllipse (cx - ringOuter, cy - ringOuter, ringOuter * 2.0f, ringOuter * 2.0f,
+                   juce::jmax (0.8f, side * 0.006f));
+    g.setColour (lightTheme ? juce::Colour (0xff808c92) : juce::Colour (0xff070a10));
     g.fillEllipse (cx - ringInner, cy - ringInner, ringInner * 2.0f, ringInner * 2.0f);
 
     juce::ColourGradient faceGrad (lightTheme ? juce::Colour (0xffffffff) : juce::Colour (0xff3a4352),
@@ -237,20 +258,34 @@ void VoiceMorphLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, i
     const float neutralAngle = voice_morph::parameter_mapping::rotaryAngleFromProportion (
         0.5, startAngle, endAngle);
     drawArc (startAngle, endAngle, colours.muted.withAlpha (lightTheme ? 0.32f : 0.35f),
-             juce::jmax (2.0f, side * 0.024f));
+             juce::jmax (2.0f, side * 0.020f));
     // Pitch and formant traces start at neutral, showing the actual signed change.
     // Unipolar controls show their amount from minimum to the current value.
     drawArc (bipolar ? neutralAngle : startAngle, angle, colours.accent,
-             juce::jmax (3.0f, side * 0.042f));
+             juce::jmax (2.5f, side * 0.034f));
 
-    const juce::Point<float> markerStart { cx + std::cos (angle) * outerR * 0.835f,
-                                           cy + std::sin (angle) * outerR * 0.835f };
-    const juce::Point<float> markerEnd { cx + std::cos (angle) * outerR * 0.965f,
-                                         cy + std::sin (angle) * outerR * 0.965f };
-    g.setColour (colours.accent.withAlpha (0.28f));
-    g.drawLine ({ markerStart, markerEnd }, juce::jmax (7.0f, side * 0.070f));
+    const float markerRadius = outerR * 0.925f;
+    const juce::Point<float> markerCentre { cx + std::cos (angle) * markerRadius,
+                                             cy + std::sin (angle) * markerRadius };
+    const float markerLength = side * 0.060f;
+    const float markerWidth = side * 0.032f;
+    auto makeMarker = [&] (float length, float thickness)
+    {
+        juce::Path tab;
+        tab.addRoundedRectangle (markerCentre.x - thickness * 0.5f,
+                                 markerCentre.y - length * 0.5f,
+                                 thickness, length, juce::jmin (2.0f, thickness * 0.3f));
+        tab.applyTransform (juce::AffineTransform::rotation (
+            angle - juce::MathConstants<float>::halfPi, markerCentre.x, markerCentre.y));
+        return tab;
+    };
+    g.setColour (colours.accent.withAlpha (0.22f));
+    g.fillPath (makeMarker (markerLength + side * 0.025f, markerWidth + side * 0.022f));
+    const auto marker = makeMarker (markerLength, markerWidth);
     g.setColour (colours.accent);
-    g.drawLine ({ markerStart, markerEnd }, juce::jmax (4.0f, side * 0.040f));
+    g.fillPath (marker);
+    g.setColour (colours.accent.brighter (0.55f).withAlpha (0.88f));
+    g.strokePath (marker, juce::PathStrokeType (juce::jmax (0.7f, side * 0.004f)));
 
     if (showReadout)
     {
@@ -259,11 +294,11 @@ void VoiceMorphLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, i
         auto units = juce::Rectangle<float> (cx - faceR * 0.62f, cy + side * 0.085f,
                                               faceR * 1.24f, side * 0.13f);
         g.setColour (colours.text);
-        g.setFont (juce::FontOptions (juce::jlimit (17.0f, 25.0f, side * 0.145f), juce::Font::bold));
+        g.setFont (themedFont (juce::jlimit (17.0f, 25.0f, side * 0.145f), juce::Font::bold));
         g.drawFittedText (juce::String (slider.getValue(), lcdDial ? 2 : 0), number.toNearestInt(),
                           juce::Justification::centred, 1);
         g.setColour (colours.accent);
-        g.setFont (juce::FontOptions (juce::jmax (10.0f, side * 0.075f), juce::Font::bold));
+        g.setFont (themedFont (juce::jmax (10.0f, side * 0.075f), juce::Font::bold));
         g.drawFittedText (lcdDial ? "ST" : "%", units.toNearestInt(), juce::Justification::centred, 1);
     }
 }
@@ -373,7 +408,7 @@ void VoiceMorphLookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleBut
         g.fillRoundedRectangle (bounds, 6.0f);
     }
     g.setColour (active ? colours.accent : colours.text);
-    g.setFont (juce::FontOptions (juce::jmin (12.0f, bounds.getHeight() * 0.38f), juce::Font::bold));
+    g.setFont (themedFont (juce::jmin (12.0f, bounds.getHeight() * 0.38f), juce::Font::bold));
     g.drawFittedText (button.getButtonText(), bounds.reduced (8.0f, 1.0f).toNearestInt(),
                       juce::Justification::centred, 2);
 }
@@ -393,10 +428,10 @@ void VoiceMorphAudioProcessorEditor::PitchContourMonitor::paint (juce::Graphics&
 
     auto inside = bounds.reduced (16.0f, 12.0f);
     auto legend = inside.removeFromTop (27.0f);
-    g.setFont (juce::FontOptions (juce::jmax (10.0f, getHeight() * 0.021f), juce::Font::bold));
+    g.setFont (lookAndFeel.themedFont (juce::jmax (10.0f, getHeight() * 0.021f), juce::Font::bold));
     g.setColour (colours.accent);
     g.drawText ("PITCH CONTOUR", legend.removeFromLeft (180.0f).toNearestInt(), juce::Justification::left);
-    g.setFont (juce::FontOptions (juce::jmax (8.0f, getHeight() * 0.016f)));
+    g.setFont (lookAndFeel.themedFont (juce::jmax (8.0f, getHeight() * 0.016f)));
     g.setColour (colours.muted);
     g.drawText ("3.0 s  /  100 Hz", legend.removeFromLeft (126.0f).toNearestInt(), juce::Justification::left);
 
@@ -436,12 +471,12 @@ void VoiceMorphAudioProcessorEditor::PitchContourMonitor::paint (juce::Graphics&
         g.setColour (colours.grid.withAlpha (0.78f));
         g.drawHorizontalLine (static_cast<int> (yy), graph.getX(), graph.getRight());
         g.setColour (colours.muted);
-        g.setFont (juce::FontOptions (juce::jmax (8.0f, getHeight() * 0.015f)));
+        g.setFont (lookAndFeel.themedFont (juce::jmax (8.0f, getHeight() * 0.015f)));
         g.drawText (juce::String (static_cast<int> (hz)),
                     juce::Rectangle<int> (static_cast<int> (inside.getX()),
                     static_cast<int> (yy - 8.0f), 39, 16), juce::Justification::centredRight);
     }
-    g.setFont (juce::FontOptions (juce::jmax (8.0f, getHeight() * 0.015f)));
+    g.setFont (lookAndFeel.themedFont (juce::jmax (8.0f, getHeight() * 0.015f)));
     g.setColour (colours.muted);
     const float tickWidth = graph.getWidth() / 6.0f;
     for (int tick = 0; tick <= 6; ++tick)
@@ -510,17 +545,17 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     setSize (1220, 810);
 
     titleLabel.setText ("VOICEMORPH", juce::dontSendNotification);
-    titleLabel.setFont (juce::FontOptions (21.0f, juce::Font::bold));
+    titleLabel.setFont (lookAndFeel.themedFont (21.0f, juce::Font::bold));
     titleLabel.setColour (juce::Label::textColourId, paletteFor (lookAndFeel.isLightTheme()).text);
     addAndMakeVisible (titleLabel);
 
     statusLabel.setText ("ANALYZER  /  WAITING FOR INPUT", juce::dontSendNotification);
-    statusLabel.setFont (juce::FontOptions (9.0f, juce::Font::bold));
+    statusLabel.setFont (lookAndFeel.themedFont (9.0f, juce::Font::bold));
     statusLabel.setColour (juce::Label::textColourId, paletteFor (lookAndFeel.isLightTheme()).accent);
     addAndMakeVisible (statusLabel);
 
     presetLabel.setText ("PRESET", juce::dontSendNotification);
-    presetLabel.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+    presetLabel.setFont (lookAndFeel.themedFont (10.0f, juce::Font::bold));
     presetLabel.setColour (juce::Label::textColourId, paletteFor (lookAndFeel.isLightTheme()).muted);
     addAndMakeVisible (presetLabel);
     presetBox.addItemList ({ "Default", "Natural Lift", "Soft / Airy", "Warm / Dark", "Character" }, 1);
@@ -553,7 +588,7 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     auto setupLabel = [this] (juce::Label& label, const juce::String& name)
     {
         label.setText (name, juce::dontSendNotification);
-        label.setFont (juce::FontOptions (10.0f, juce::Font::bold));
+        label.setFont (lookAndFeel.themedFont (10.0f, juce::Font::bold));
         label.setColour (juce::Label::textColourId, paletteFor (lookAndFeel.isLightTheme()).muted);
         label.setJustificationType (juce::Justification::centred);
         addAndMakeVisible (label);

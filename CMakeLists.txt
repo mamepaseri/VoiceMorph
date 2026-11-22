@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(VoiceMorph VERSION 0.8.3 LANGUAGES C CXX)
+project(VoiceMorph VERSION 0.8.4 LANGUAGES C CXX)
 
 include(FetchContent)
 
@@ -54,6 +54,9 @@ juce_add_plugin(VoiceMorph
     COPY_PLUGIN_AFTER_BUILD FALSE)
 
 juce_generate_juce_header(VoiceMorph)
+
+juce_add_binary_data(VoiceMorphUiAssets
+    SOURCES assets/fonts/TurboRacersRegular-nA0zg.ttf)
 
 target_sources(VoiceMorph PRIVATE
     Source/PluginProcessor.cpp
@@ -110,6 +113,7 @@ else()
 endif()
 
 target_link_libraries(VoiceMorph PRIVATE
+    VoiceMorphUiAssets
     juce::juce_audio_utils
     juce::juce_dsp
     PUBLIC

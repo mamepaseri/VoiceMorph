@@ -5,6 +5,7 @@ This file records the intended upstream dependencies. The CMake build fetches th
 | Component | Upstream | License | Usage / condition |
 |---|---|---|---|
 | JUCE 8.0.6 | https://github.com/juce-framework/JUCE | AGPLv3 or commercial JUCE license | Existing plug-in framework. A closed-source distributed product may require a commercial JUCE license. |
+| Turbo Racers Regular | Fireball760 Fonts (supplied project asset) | Copyright (c) 2026 Fireball760 Fonts; use under the font license supplied/confirmed by the project owner | Embedded as the interface typeface. |
 | Signalsmith Stretch | https://github.com/Signalsmith-Audio/signalsmith-stretch | MIT | Optional full-band pitch/formant comparison adapter. Preserve upstream copyright/license. |
 | Signalsmith Linear | https://github.com/Signalsmith-Audio/linear | MIT | Transitive dependency fetched by Signalsmith Stretch. Preserve its own notices. |
 | WORLD | https://github.com/mmorise/World | Modified BSD | Optional speech analysis backend. Preserve copyright/conditions/disclaimer from upstream LICENSE.txt. |
