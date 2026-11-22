@@ -609,7 +609,7 @@ int main()
         levelVoiced.fill (confidence);
         std::array<const float*, 1> levelInPointers { levelInput.data() };
         std::array<float*, 1> levelOutPointers { levelOutput.data() };
-        double inputEnergy = 0.0;
+        double levelInputEnergy = 0.0;
         double outputEnergy = 0.0;
         for (int offset = 0; offset < 8192; offset += 128)
         {
@@ -627,7 +627,7 @@ int main()
                 for (int i = 0; i < 128; ++i)
                 {
                     const auto index = static_cast<std::size_t> (i);
-                    inputEnergy += static_cast<double> (levelInput[index]) * levelInput[index];
+                    levelInputEnergy += static_cast<double> (levelInput[index]) * levelInput[index];
                     outputEnergy += static_cast<double> (levelOutput[index]) * levelOutput[index];
                 }
         }

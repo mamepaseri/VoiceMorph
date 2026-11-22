@@ -13,7 +13,7 @@ void AdaptivePeriodicSplitter::prepare (double sampleRate) noexcept
 {
     sampleRateHz = std::clamp (sampleRate, 8000.0, 192000.0);
     delaySmoothingCoefficient = 1.0f - std::exp (-1.0f / (static_cast<float> (sampleRateHz) * 0.008f));
-    correlationSmoothingCoefficient = 1.0f - std::exp (-1.0f / (static_cast<float> (sampleRateHz) * 0.012f));
+    correlationSmoothingCoefficient = 1.0f - std::exp (-1.0f / (static_cast<float> (sampleRateHz) * 0.004f));
     amplitudeAttackCoefficient = 1.0f - std::exp (-1.0f / (static_cast<float> (sampleRateHz) * 0.002f));
     amplitudeReleaseCoefficient = 1.0f - std::exp (-1.0f / (static_cast<float> (sampleRateHz) * 0.050f));
     reset();
