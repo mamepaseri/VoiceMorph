@@ -631,7 +631,7 @@ int main()
                     outputEnergy += static_cast<double> (levelOutput[index]) * levelOutput[index];
                 }
         }
-        const double levelRatio = inputEnergy > 0.0 ? std::sqrt (outputEnergy / inputEnergy) : 0.0;
+        const double levelRatio = levelInputEnergy > 0.0 ? std::sqrt (outputEnergy / levelInputEnergy) : 0.0;
         ok &= require (prepared && levelRatio > 0.75 && levelRatio < 1.10,
                        "input amplitude " + std::to_string (amplitude)
                        + " retains output level without automatic gain correction (ratio "
