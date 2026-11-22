@@ -1,9 +1,14 @@
 cmake_minimum_required(VERSION 3.24)
-project(VoiceMorph VERSION 0.8.3 LANGUAGES C CXX)
+project(VoiceMorph VERSION 0.9.0 LANGUAGES C CXX)
 
 include(FetchContent)
 
-# Framework. JUCE is dual-licensed (AGPLv3 or commercial); see THIRD_PARTY_NOTICES.md.
+# Framework. This product uses JUCE under AGPLv3; see LICENSE and THIRD_PARTY_NOTICES.md.
+if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/JUCE/CMakeLists.txt"
+    AND NOT DEFINED FETCHCONTENT_SOURCE_DIR_JUCE)
+    set(FETCHCONTENT_SOURCE_DIR_JUCE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/JUCE" CACHE PATH
+        "Use JUCE source included in the corresponding-source archive")
+endif()
 FetchContent_Declare(JUCE
     GIT_REPOSITORY https://github.com/juce-framework/JUCE.git
     GIT_TAG 8.0.6
@@ -19,11 +24,22 @@ set(VOICEMORPH_SIGNALSMITH_GIT_TAG "57b93f4e9206a089a45387eaa39bdc9f310d3308" CA
 set(VOICEMORPH_WORLD_GIT_TAG "v1.0.1" CACHE STRING "WORLD release tag")
 
 if (VOICEMORPH_ENABLE_SIGNALSMITH)
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/signalsmith-stretch/CMakeLists.txt"
+        AND NOT DEFINED FETCHCONTENT_SOURCE_DIR_SIGNALSMITH_STRETCH)
+        set(FETCHCONTENT_SOURCE_DIR_SIGNALSMITH_STRETCH "${CMAKE_CURRENT_SOURCE_DIR}/third_party/signalsmith-stretch" CACHE PATH
+            "Use Signalsmith source included in the corresponding-source archive")
+    endif()
     FetchContent_Declare(signalsmith_stretch
         GIT_REPOSITORY https://github.com/Signalsmith-Audio/signalsmith-stretch.git
         GIT_TAG ${VOICEMORPH_SIGNALSMITH_GIT_TAG}
         GIT_SHALLOW FALSE # Required when pinning an exact commit hash.
         GIT_SUBMODULES_RECURSE TRUE)
+    # Signalsmith Stretch fetches this transitive source itself. Declaring the
+    # same content name first lets a corresponding-source archive use its copy.
+    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/third_party/signalsmith-linear/CMakeLists.txt")
+        FetchContent_Declare(signalsmith-linear
+            SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/signalsmith-linear")
+    endif()
     FetchContent_MakeAvailable(signalsmith_stretch)
 endif()
 
@@ -83,7 +99,8 @@ target_compile_features(VoiceMorph PRIVATE cxx_std_17)
 target_compile_definitions(VoiceMorph PUBLIC
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
-    JUCE_VST3_CAN_REPLACE_VST2=0)
+    JUCE_VST3_CAN_REPLACE_VST2=0
+    VOICEMORPH_VERSION_STRING=\"${PROJECT_VERSION}\")
 
 if (VOICEMORPH_ENABLE_SIGNALSMITH)
     if (TARGET signalsmith-stretch)

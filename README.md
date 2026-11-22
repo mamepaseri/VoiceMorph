@@ -1,16 +1,20 @@
-# VoiceMorph — Windows x64 VST3 experimental beta 0.8.3
+# VoiceMorph — Windows x64 VST3 stabilization candidate 0.9.0 (prerelease)
+
+Copyright (C) 2026 VoiceMorph contributors. This project source is licensed under **GNU AGPL-3.0-only**; see [LICENSE](LICENSE). JUCE 8.0.6 is used under its AGPLv3 option. The JUCE Starter/Indie/Pro EULA is not used for this combined product. No warranty is provided; see the license text. Version 0.9.0 is a stabilization candidate; it is not approved for release yet.
 
 VoiceMorph is an experimental Windows x64 VST3 voice-transformation plug-in. It uses pitch/formant processing and a hybrid periodic/residual signal path. This is an early prototype: transformed speech can still sound robotic or warbly.
 
 ## Download and install
 
-Get the latest Windows x64 installer from [GitHub Releases](https://github.com/mamepaseri/VoiceMorph/releases/latest). Download the direct [Windows x64 installer EXE](https://github.com/mamepaseri/VoiceMorph/releases/download/v0.8.3/VoiceMorph-Setup-x64-0.8.3.exe), or the [ZIP copy](https://github.com/mamepaseri/VoiceMorph/releases/download/v0.8.3/VoiceMorph-Setup-x64-0.8.3.zip). The installer offers per-user installation by default and can also install for all users. Close your DAW before installing or uninstalling, then rescan its VST3 plug-ins.
+Get the Windows x64 installer from [GitHub Releases](https://github.com/mamepaseri/VoiceMorph/releases). A release made under the AGPL route must include `VoiceMorph-Source-<same-version>.zip` and `SHA256SUMS.txt` beside its installer; use the source archive with the same version as the installed plug-in. The current public v0.8.3 prerelease is retained unchanged and predates this branch's licensing/package work. The installer offers per-user installation by default and can also install for all users. Close your DAW before installing or uninstalling, then rescan its VST3 plug-ins.
+
+The installed VST3 bundle contains the AGPL and third-party license notices under `Contents/Resources/VoiceMorph`. In Advanced Settings, **AGPLv3 / NO WARRANTY** opens the license notice and **SOURCE CODE** opens the corresponding source archive for that version.
 
 The installer is unsigned, so Windows SmartScreen may show an unfamiliar-app warning. It installs the built `VoiceMorph.vst3` bundle and includes an uninstaller.
 
 ## Automatic Windows releases
 
-After the Windows x64 VST3 build (Signalsmith ON and OFF) and DSP test suite both pass on `main`, the packaging workflow takes the Signalsmith ON artifact, validates and smoke-tests the installer, then publishes one versioned ZIP to GitHub Releases. The release version comes from `project(VERSION ...)` in `CMakeLists.txt`. Existing tags are never overwritten, and repeat builds for an already published version do not create duplicate downloadable artifacts. A package-only or manual Actions run cannot publish unless it refers to a successful main-branch Windows VST3 build and the same commit has passing DSP tests.
+After the Windows x64 VST3 build (Signalsmith ON and OFF) and DSP test suite both pass on `main`, the packaging workflow takes the Signalsmith ON artifact and corresponding-source archive from that exact run, validates the source commit, smoke-tests installer install/uninstall and hashes all release assets. It prepares a **draft prerelease** for owner review; the workflow does not publish it. The release version comes from `project(VERSION ...)` in `CMakeLists.txt`. Existing tags are never overwritten. A package-only or manual Actions run cannot prepare a draft unless it refers to a successful main-branch Windows VST3 build, a matching source archive, and the same commit has passing DSP tests.
 
 ## 0.8.3 changes
 
@@ -48,7 +52,7 @@ The processor analyzes incoming audio, separates a periodic candidate from a res
 
 ## Validation and limitations
 
-The release workflow requires successful Windows x64 VST3 builds with Signalsmith enabled and disabled, passing DSP tests, a validated installer payload, and a silent install/uninstall smoke test. Releases include a direct installer EXE, ZIP copy and SHA-256 checksum manifest.
+The release workflow requires successful Windows x64 VST3 builds with Signalsmith enabled and disabled, passing DSP tests, a matching corresponding-source archive, a validated installer payload, and a silent install/uninstall smoke test. Releases include a direct installer EXE, ZIP copy, AGPL source archive and SHA-256 checksum manifest. The installer remains unsigned and SmartScreen may show a warning.
 
 The two supplied processed renders measured F0 medians of 244.5 Hz (RoVee) and 248.1 Hz (VoiceMorph 0.8.1). Their 10–90% spans were 3.68 and 2.53 semitones, respectively. The clips are not confirmed as the same dry take or sample-aligned, so the comparison is suggestive rather than controlled. It motivated an adjustable contour control; it does not prove an audio-quality match.
 
@@ -88,6 +92,6 @@ The Signalsmith-enabled quality test is configured with `-DVOICEMORPH_TEST_SIGNA
 
 ## Third-party components and licensing
 
-Signalsmith Stretch is an optional MIT-licensed dependency. WORLD is an optional modified-BSD analysis dependency and is disabled by default. JUCE is dual-licensed; review the applicable terms in [LICENSING.md](LICENSING.md) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) before redistributing or modifying the project.
+Signalsmith Stretch is an optional MIT-licensed dependency. WORLD is an optional modified-BSD analysis dependency and is disabled by default. See [LICENSING.md](LICENSING.md), [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md), and [distribution compliance gates](docs/DISTRIBUTION_COMPLIANCE.md). Every new AGPL binary must ship with complete corresponding source for its exact build.
 
 See [ENGINE_ARCHITECTURE.md](ENGINE_ARCHITECTURE.md), [BUILD_VALIDATION.md](BUILD_VALIDATION.md), and [PSOLA_EXPERIMENTAL.md](docs/PSOLA_EXPERIMENTAL.md) for implementation notes.

@@ -23,6 +23,18 @@ jobs:
         run: cmake -S . -B build-${{ matrix.signalsmith }} -G "Visual Studio 17 2022" -A x64 -DVOICEMORPH_ENABLE_SIGNALSMITH=${{ matrix.signalsmith }} -DVOICEMORPH_ENABLE_WORLD=OFF
       - name: Build VST3
         run: cmake --build build-${{ matrix.signalsmith }} --config Release --target VoiceMorph_VST3 --parallel 2
+      - name: Package AGPL corresponding source
+        if: matrix.signalsmith == 'ON'
+        shell: pwsh
+        run: ./scripts/package-source.ps1 -BuildDirectory "build-ON"
+      - name: Upload AGPL corresponding source
+        if: matrix.signalsmith == 'ON'
+        uses: actions/upload-artifact@v4
+        with:
+          name: VoiceMorph-AGPL-Source
+          path: dist/VoiceMorph-Source-*.zip
+          if-no-files-found: error
+          retention-days: 90
       - name: Upload VST3 artifact
         uses: actions/upload-artifact@v4
         with:

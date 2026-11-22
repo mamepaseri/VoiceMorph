@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 #include "PluginEditor.h"
 #include "ParameterMapping.h"
 
@@ -34,11 +35,13 @@ namespace
                                juce::Label& intensityLabelIn, juce::Slider& intensitySliderIn,
                                juce::Label& mixLabelIn, juce::Slider& mixSliderIn,
                                juce::Label& qualityLabelIn, juce::ComboBox& qualityBoxIn,
-                               juce::ToggleButton& bypassButtonIn)
+                               juce::ToggleButton& bypassButtonIn,
+                               juce::TextButton& licenseButtonIn, juce::TextButton& sourceButtonIn)
             : lookAndFeel (lookAndFeelIn), rangeLabel (rangeLabelIn), rangeBox (rangeBoxIn),
               intensityLabel (intensityLabelIn), intensitySlider (intensitySliderIn),
               mixLabel (mixLabelIn), mixSlider (mixSliderIn), qualityLabel (qualityLabelIn),
-              qualityBox (qualityBoxIn), bypassButton (bypassButtonIn)
+              qualityBox (qualityBoxIn), bypassButton (bypassButtonIn),
+              licenseButton (licenseButtonIn), sourceButton (sourceButtonIn)
         {
             setLookAndFeel (&lookAndFeel);
             addAndMakeVisible (rangeLabel);
@@ -50,6 +53,8 @@ namespace
             addAndMakeVisible (qualityLabel);
             addAndMakeVisible (qualityBox);
             addAndMakeVisible (bypassButton);
+            addAndMakeVisible (licenseButton);
+            addAndMakeVisible (sourceButton);
         }
 
         ~AdvancedSettingsPanel() override { setLookAndFeel (nullptr); }
@@ -86,7 +91,10 @@ namespace
             intensitySlider.setBounds (right.removeFromTop (92));
             mixLabel.setBounds (right.removeFromTop (23));
             mixSlider.setBounds (right.removeFromTop (92));
-            bypassButton.setBounds (getLocalBounds().removeFromBottom (42).reduced (18, 4));
+            auto footer = getLocalBounds().removeFromBottom (42).reduced (18, 4);
+            licenseButton.setBounds (footer.removeFromLeft (150).reduced (1));
+            sourceButton.setBounds (footer.removeFromLeft (116).reduced (1));
+            bypassButton.setBounds (footer.reduced (1));
         }
 
     private:
@@ -100,6 +108,8 @@ namespace
         juce::Label& qualityLabel;
         juce::ComboBox& qualityBox;
         juce::ToggleButton& bypassButton;
+        juce::TextButton& licenseButton;
+        juce::TextButton& sourceButton;
     };
 
     class AdvancedSettingsWindow final : public juce::DocumentWindow
@@ -110,7 +120,8 @@ namespace
                                 juce::Label& intensityLabel, juce::Slider& intensitySlider,
                                 juce::Label& mixLabel, juce::Slider& mixSlider,
                                 juce::Label& qualityLabel, juce::ComboBox& qualityBox,
-                                juce::ToggleButton& bypassButton)
+                                juce::ToggleButton& bypassButton,
+                                juce::TextButton& licenseButton, juce::TextButton& sourceButton)
             : juce::DocumentWindow ("VoiceMorph Advanced",
                                     paletteFor (lookAndFeel.isLightTheme()).background,
                                     juce::DocumentWindow::allButtons, true)
@@ -121,7 +132,7 @@ namespace
             setResizeLimits (480, 320, 900, 700);
             auto panel = std::make_unique<AdvancedSettingsPanel> (
                 lookAndFeel, rangeLabel, rangeBox, intensityLabel, intensitySlider,
-                mixLabel, mixSlider, qualityLabel, qualityBox, bypassButton);
+                mixLabel, mixSlider, qualityLabel, qualityBox, bypassButton, licenseButton, sourceButton);
             setContentOwned (panel.release(), true);
             centreWithSize (560, 390);
         }
@@ -533,6 +544,24 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
                                   &naturalModeButton, &balancedModeButton, &preciseModeButton };
     for (auto* button : buttons)
         addAndMakeVisible (*button);
+    licenseButton.setTooltip ("VoiceMorph is AGPL-3.0-only and is provided without warranty. Open the license text.");
+    sourceButton.setTooltip ("Open the corresponding-source archive for this exact VoiceMorph version.");
+    licenseButton.onClick = []
+    {
+        juce::AlertWindow::showMessageBoxAsync (
+            juce::MessageBoxIconType::InfoIcon, "VoiceMorph licensing",
+            "Copyright (C) 2026 VoiceMorph contributors.\n\n"
+            "VoiceMorph is licensed under GNU AGPL-3.0-only and is provided without warranty. "
+            "Use SOURCE CODE for the corresponding source archive for this version.");
+        juce::URL ("https://www.gnu.org/licenses/agpl-3.0.html").launchInDefaultBrowser();
+    };
+    sourceButton.onClick = []
+    {
+        const juce::String version = VOICEMORPH_VERSION_STRING;
+        const juce::String sourceUrl = juce::String ("https://github.com/mamepaseri/VoiceMorph/releases/download/v")
+                                     + version + "/VoiceMorph-Source-" + version + ".zip";
+        juce::URL (sourceUrl).launchInDefaultBrowser();
+    };
     prevPresetButton.onClick = [this] { presetBox.setSelectedItemIndex (juce::jmax (0, presetBox.getSelectedItemIndex() - 1)); };
     nextPresetButton.onClick = [this] { presetBox.setSelectedItemIndex (juce::jmin (presetBox.getNumItems() - 1, presetBox.getSelectedItemIndex() + 1)); };
     aButton.setClickingTogglesState (false);
@@ -774,7 +803,8 @@ void VoiceMorphAudioProcessorEditor::showAdvancedSettings()
     {
         advancedWindow = std::make_unique<AdvancedSettingsWindow> (
             lookAndFeel, deEssRangeLabel, deEssRangeBox, deEssLabel, deEssIntensitySlider,
-            deEssMixLabel, deEssMixSlider, qualityLabel, qualityBox, deEssBypassButton);
+            deEssMixLabel, deEssMixSlider, qualityLabel, qualityBox, deEssBypassButton,
+            licenseButton, sourceButton);
     }
     advancedWindow->setVisible (true);
     advancedWindow->toFront (true);
@@ -816,7 +846,7 @@ void VoiceMorphAudioProcessorEditor::refreshTheme()
 
     for (auto* button : { &prevPresetButton, &nextPresetButton, &aButton, &bButton, &advancedButton,
                           &darkThemeButton, &lightThemeButton, &naturalModeButton, &balancedModeButton,
-                          &preciseModeButton })
+                          &preciseModeButton, &licenseButton, &sourceButton })
     {
         button->setColour (juce::TextButton::textColourOffId, colours.text);
         button->setColour (juce::TextButton::textColourOnId, colours.accent);

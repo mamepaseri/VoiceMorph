@@ -89,7 +89,9 @@ jobs:
             windowsRuns.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
             for (const run of windowsRuns) {
               const { data } = await github.rest.actions.listWorkflowRunArtifacts({ owner, repo, run_id: run.id });
-              if (data.artifacts.some(a => a.name === "VoiceMorph-VST3-ON" && !a.expired)) {
+              const hasPlugin = data.artifacts.some(a => a.name === "VoiceMorph-VST3-ON" && !a.expired);
+              const hasSource = data.artifacts.some(a => a.name === "VoiceMorph-AGPL-Source" && !a.expired);
+              if (hasPlugin && hasSource) {
                 core.setOutput("ready", "true");
                 core.setOutput("run_id", String(run.id));
                 core.setOutput("head_sha", run.head_sha);
@@ -98,7 +100,7 @@ jobs:
             }
 
             core.setOutput("ready", "false");
-            core.notice("No successful main-branch Windows VST3 build with an unexpired Signalsmith ON artifact is ready to package.");
+            core.notice("No successful main-branch Windows VST3 build with both unexpired plug-in and AGPL source artifacts is ready to package.");
 
       - name: Download Signalsmith ON VST3 build artifact
         if: steps.source.outputs.ready == 'true'
@@ -109,6 +111,78 @@ jobs:
           repository: ${{ github.repository }}
           run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ github.token }}
+
+      - name: Download corresponding-source archive
+        if: steps.source.outputs.ready == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: VoiceMorph-AGPL-Source
+          path: downloaded-source
+          repository: ${{ github.repository }}
+          run-id: ${{ steps.source.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Validate corresponding source and stage release materials
+        if: steps.source.outputs.ready == 'true'
+        shell: pwsh
+        env:
+          EXPECTED_SOURCE_COMMIT: ${{ steps.source.outputs.head_sha }}
+        run: |
+          $versionLine = Select-String -Path "CMakeLists.txt" -Pattern '^project\(VoiceMorph VERSION ([0-9]+\.[0-9]+\.[0-9]+)'
+          if (-not $versionLine) { throw "Could not read VoiceMorph version from CMakeLists.txt." }
+          $version = $versionLine.Matches[0].Groups[1].Value
+          $sourceName = "VoiceMorph-Source-$version.zip"
+          $sourceFiles = @(Get-ChildItem -Path "downloaded-source" -Recurse -File -Filter $sourceName)
+          if ($sourceFiles.Count -ne 1) { throw "Expected one matching corresponding-source archive, found $($sourceFiles.Count)." }
+
+          Add-Type -AssemblyName System.IO.Compression
+          $archive = [System.IO.Compression.ZipFile]::OpenRead($sourceFiles[0].FullName)
+          try {
+            $entries = @($archive.Entries | ForEach-Object { $_.FullName })
+            $required = @(
+              "VoiceMorph/LICENSE",
+              "VoiceMorph/THIRD_PARTY_NOTICES.md",
+              "VoiceMorph/SOURCE-MANIFEST.txt",
+              "VoiceMorph/CMakeLists.txt",
+              "VoiceMorph/third_party/JUCE/CMakeLists.txt",
+              "VoiceMorph/third_party/JUCE/LICENSE.md",
+              "VoiceMorph/third_party/signalsmith-stretch/CMakeLists.txt",
+              "VoiceMorph/third_party/signalsmith-stretch/LICENSE.txt",
+              "VoiceMorph/third_party/signalsmith-linear/CMakeLists.txt",
+              "VoiceMorph/third_party/signalsmith-linear/LICENSE.txt"
+            )
+            foreach ($entry in $required) {
+              if ($entries -notcontains $entry) { throw "Corresponding-source archive is missing $entry." }
+            }
+            $manifestEntry = $archive.GetEntry("VoiceMorph/SOURCE-MANIFEST.txt")
+            $reader = [System.IO.StreamReader]::new($manifestEntry.Open())
+            try { $manifest = $reader.ReadToEnd() } finally { $reader.Dispose() }
+            if ($manifest -notmatch [regex]::Escape("Source commit: $env:EXPECTED_SOURCE_COMMIT")) {
+              throw "Corresponding-source commit does not match the plug-in build commit."
+            }
+            if ($manifest -notmatch [regex]::Escape("Project version: $version")) {
+              throw "Corresponding-source version does not match the installer version."
+            }
+            if ($manifest -notmatch "License: AGPL-3\.0-only") {
+              throw "Corresponding-source archive does not declare AGPL-3.0-only."
+            }
+            if ($manifest -notmatch "JUCE: 8\.0\.6 at [0-9a-f]{40}" -or
+                $manifest -notmatch "Signalsmith Stretch: [0-9a-f]{40}" -or
+                $manifest -notmatch "Signalsmith Linear: 0\.3\.1 at [0-9a-f]{40}" -or
+                $manifest -notmatch "Build configuration: Signalsmith Stretch ON, WORLD OFF") {
+              throw "Corresponding-source dependency versions or build configuration are incomplete."
+            }
+          }
+          finally { $archive.Dispose() }
+
+          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+          $releaseSource = Join-Path "dist" $sourceName
+          Copy-Item -LiteralPath $sourceFiles[0].FullName -Destination $releaseSource -Force
+          $sourceHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $releaseSource).Hash.ToLowerInvariant()
+          "APP_VERSION=$version" >> $env:GITHUB_ENV
+          "SOURCE_ARCHIVE=$releaseSource" >> $env:GITHUB_ENV
+          "SOURCE_SHA256=$sourceHash" >> $env:GITHUB_ENV
+          "SOURCE_COMMIT=$env:EXPECTED_SOURCE_COMMIT" >> $env:GITHUB_ENV
 
       - name: Validate and stage VST3 bundle
         if: steps.source.outputs.ready == 'true'
@@ -138,6 +212,26 @@ jobs:
           if (-not $versionLine) { throw "Could not read VoiceMorph version from CMakeLists.txt." }
           $version = $versionLine.Matches[0].Groups[1].Value
           "APP_VERSION=$version" >> $env:GITHUB_ENV
+
+          $sourceRoot = Join-Path $env:RUNNER_TEMP ("VoiceMorph-source-notices-" + [guid]::NewGuid().ToString("N"))
+          Expand-Archive -LiteralPath $env:SOURCE_ARCHIVE -DestinationPath $sourceRoot
+          $projectSource = Join-Path $sourceRoot "VoiceMorph"
+          $noticesDir = Join-Path "installer\payload\VoiceMorph.vst3\Contents\Resources\VoiceMorph"
+          New-Item -ItemType Directory -Force -Path $noticesDir | Out-Null
+          Copy-Item -LiteralPath (Join-Path $projectSource "LICENSE") -Destination (Join-Path $noticesDir "LICENSE.txt")
+          Copy-Item -LiteralPath (Join-Path $projectSource "THIRD_PARTY_NOTICES.md") -Destination $noticesDir
+          Copy-Item -LiteralPath (Join-Path $projectSource "third_party\JUCE\LICENSE.md") -Destination (Join-Path $noticesDir "JUCE-LICENSE.md")
+          Copy-Item -LiteralPath (Join-Path $projectSource "third_party\JUCE\modules\juce_audio_processors\format_types\VST3_SDK\LICENSE.txt") -Destination (Join-Path $noticesDir "VST3-SDK-LICENSE.txt")
+          Copy-Item -LiteralPath (Join-Path $projectSource "third_party\signalsmith-stretch\LICENSE.txt") -Destination (Join-Path $noticesDir "Signalsmith-Stretch-LICENSE.txt")
+          Copy-Item -LiteralPath (Join-Path $projectSource "third_party\signalsmith-linear\LICENSE.txt") -Destination (Join-Path $noticesDir "Signalsmith-Linear-LICENSE.txt")
+          @(
+            "VoiceMorph $version is licensed under GNU AGPL-3.0-only.",
+            "This software is provided without warranty; see LICENSE.txt.",
+            "Corresponding source commit: $env:SOURCE_COMMIT",
+            "Corresponding source for this exact version:",
+            "https://github.com/mamepaseri/VoiceMorph/releases/download/v$version/VoiceMorph-Source-$version.zip"
+          ) | Set-Content -LiteralPath (Join-Path $noticesDir "SOURCE-CODE.txt") -Encoding utf8
+          Remove-Item -LiteralPath $sourceRoot -Recurse -Force
           "Staged VoiceMorph $version bundle from successful Signalsmith ON build."
 
       - name: Install Inno Setup
@@ -278,7 +372,8 @@ jobs:
           $zipHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $archive).Hash.ToLowerInvariant()
           @(
             "$exeHash  $(Split-Path -Leaf $setup)",
-            "$zipHash  $(Split-Path -Leaf $archive)"
+            "$zipHash  $(Split-Path -Leaf $archive)",
+            "$env:SOURCE_SHA256  $(Split-Path -Leaf $env:SOURCE_ARCHIVE)"
           ) | Set-Content -Encoding ascii "dist\SHA256SUMS.txt"
 
       - name: Publish new version to GitHub Releases
@@ -297,6 +392,17 @@ jobs:
               owner, repo, run_id: Number(process.env.SOURCE_RUN_ID)
             });
 
+            const sourceArchiveName = "VoiceMorph-Source-" + version + ".zip";
+            const sourceArchivePath = "dist/" + sourceArchiveName;
+            const releaseBody = "## VoiceMorph " + version + " — Draft experimental prerelease\n\n" +
+              "Adds an independent Pitch Dynamics control that expands voiced pitch movement around a slow phrase baseline. " +
+              "See README.md and CHANGELOG.md for the A/B measurements and configuration details.\n\n" +
+              "Build: Windows x64 VST3, Signalsmith Stretch ON. DSP CI and installer install/uninstall smoke test must pass.\n\n" +
+              "Corresponding source for this exact build commit (" + sourceRun.head_sha + "): [" + sourceArchiveName + "](" +
+              "https://github.com/" + owner + "/" + repo + "/releases/download/" + tag + "/" + sourceArchiveName + ").\n\n" +
+              "Limitations: synthetic contour tests do not establish natural voice quality. No Cakewalk Sonar / Zoom UAC-232 listening validation was performed; robotic or warbly artifacts may remain. " +
+              "The installer is unsigned and Windows SmartScreen may show a warning. See LICENSING.md and THIRD_PARTY_NOTICES.md.";
+
             if (sourceRun.status !== "completed" || sourceRun.conclusion !== "success" ||
                 sourceRun.head_branch !== "main" || !sourceRun.path.endsWith("windows-vst3-ui.yml")) {
               core.setFailed("Refusing to publish from a run that is not a successful main-branch Windows VST3 build.");
@@ -313,6 +419,10 @@ jobs:
             const assetPath = "dist/" + assetName;
             if (!fs.existsSync(assetPath)) {
               core.setFailed("Release archive is missing: " + assetPath);
+              return;
+            }
+            if (!fs.existsSync(sourceArchivePath)) {
+              core.setFailed("Corresponding-source archive is missing: " + sourceArchivePath);
               return;
             }
 
@@ -347,12 +457,7 @@ jobs:
                   tag_name: tag,
                   target_commitish: sourceRun.head_sha,
                   name: "VoiceMorph " + version,
-                  body: "## VoiceMorph " + version + " — Experimental beta\n\n" +
-                    "Adds an independent Pitch Dynamics control that expands voiced pitch movement around a slow phrase baseline. " +
-                    "See README.md and CHANGELOG.md for the A/B measurements and configuration details.\n\n" +
-                    "Build: Windows x64 VST3, Signalsmith Stretch ON. DSP CI and installer install/uninstall smoke test must pass.\n\n" +
-                    "Limitations: synthetic contour tests do not establish natural voice quality. No Cakewalk Sonar / Zoom UAC-232 listening validation was performed; robotic or warbly artifacts may remain. " +
-                    "The installer is unsigned and Windows SmartScreen may show a warning. See LICENSING.md and THIRD_PARTY_NOTICES.md.",
+                  body: releaseBody,
                   draft: true,
                   prerelease: true,
                   generate_release_notes: false
@@ -383,6 +488,21 @@ jobs:
               });
             }
 
+            const existingSourceAsset = release.assets.find(asset => asset.name === sourceArchiveName);
+            if (existingSourceAsset) {
+              if (!release.draft) {
+                core.setFailed("Refusing to replace corresponding source on a published release.");
+                return;
+              }
+              await github.rest.repos.deleteReleaseAsset({ owner, repo, asset_id: existingSourceAsset.id });
+            }
+            const sourceStats = fs.statSync(sourceArchivePath);
+            await github.rest.repos.uploadReleaseAsset({
+              owner, repo, release_id: release.id, name: sourceArchiveName,
+              data: fs.readFileSync(sourceArchivePath),
+              headers: { "content-type": "application/zip", "content-length": sourceStats.size }
+            });
+
             const extraAssets = [
               { name: "VoiceMorph-Setup-x64-" + version + ".exe",
                 path: "dist/VoiceMorph-Setup-x64-" + version + ".exe",
@@ -406,7 +526,7 @@ jobs:
 
             if (release.draft) {
               await github.rest.repos.updateRelease({
-                owner, repo, release_id: release.id, draft: false, prerelease: true
+                owner, repo, release_id: release.id, body: releaseBody, draft: true, prerelease: true
               });
             }
-            core.notice("Published " + assetName + " and direct installer assets to " + release.html_url);
+            core.notice("Prepared draft " + assetName + " with corresponding source and direct installer assets at " + release.html_url + ". Owner review is required before publication.");

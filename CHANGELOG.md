@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0 — Stabilization candidate (prerelease; not published)
+
+- Selected AGPL-3.0-only for the VoiceMorph source and JUCE 8.0.6 integration; added SPDX identifiers and the complete license text.
+- Added an Advanced Settings legal notice with direct license and exact-version source links.
+- Added a corresponding-source archive containing VoiceMorph, JUCE, Signalsmith Stretch, and its transitive Signalsmith Linear dependency.
+- Made the Windows release workflow require the same-commit source archive, retain license notices inside the installed VST3 bundle, hash all release files, and prepare a draft prerelease for owner review.
+- Preserved the public v0.8.3 release and assets unchanged. This candidate is not approved for release; see the [acceptance checklist](docs/STABILIZATION_ACCEPTANCE.md).
+
 ## 0.8.3 — 2026-11-20 — Experimental beta
 
 - Added an independent **Pitch Dynamics** control. It scales voiced F0 movement around a slow phrase baseline, separately from fixed Pitch semitones.

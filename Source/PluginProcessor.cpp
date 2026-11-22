@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "ParameterMapping.h"

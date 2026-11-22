@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 #pragma once
 
 // Expands expressive F0 movement around a slowly-following phrase baseline.

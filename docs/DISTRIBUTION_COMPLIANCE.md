@@ -1,6 +1,6 @@
 # Distribution compliance and drop-in installation gates
 
-Status: AGPL-3.0-only selected by the project owner on 2026-11-22. LICENSE is present on this stabilization branch. The v0.8.3 tag and release assets remain unchanged; this branch is not a new binary release.
+Status: AGPL-3.0-only selected by the project owner on 2026-11-22. License identifiers, a source-packaging script, release-workflow gates, and editor links are now present on this stabilization branch, but none has passed a fresh release-candidate CI run yet. The v0.8.3 tag and release assets remain unchanged; this branch is not a new binary release.
 
 ## Release record required for every binary
 
@@ -10,10 +10,10 @@ Record the exact source commit SHA; build workflow/run ID; JUCE version and AGPL
 
 - Keep the complete AGPLv3 license text and project-level license notices in the source repository and distribution package.
 - Confirm all original VoiceMorph contributions can be licensed under AGPL-3.0-only. The accessible commit history reviewed so far shows author identities mamepaseri and codex; check for employer, contractor, and other third-party rights before formal release.
-- Build a Corresponding Source archive for the exact released binary. Include VoiceMorph source, CMake/build/install scripts, JUCE 8.0.6 source, and source for the enabled pinned dependencies (including required submodules), plus any patches/configuration needed to generate, install, run and modify the plug-in.
+- Build a Corresponding Source archive for the exact released binary. Include VoiceMorph source, CMake/build/install scripts, JUCE 8.0.6 source, Signalsmith Stretch and its transitive Signalsmith Linear source, plus any patches/configuration needed to generate, install, run and modify the plug-in.
 - Publish the source archive at no charge beside the installer and ZIP; include a plain source link in release notes, keep it available while offering that binary, and verify the archive hash/commit metadata.
 - Preserve upstream conditions and notices for Signalsmith Stretch and Signalsmith Linear (MIT) and WORLD (modified BSD) when enabled. Do not include research-only dependencies unless their exact license/notices have been reviewed.
-- Add an accessible About/Licenses view in the plug-in with the appropriate AGPL legal notices, warranty information, and license/source location.
+- Add an accessible About/Licenses view in the plug-in with the appropriate AGPL legal notices, warranty information, and exact-version license/source links.
 - Do not ship DRM, terms, or installer behavior that prevents users from modifying and redistributing AGPL-covered builds.
 - Do not use the JUCE Starter/Indie/Pro EULA for this same combined VoiceMorph product.
 
@@ -29,7 +29,7 @@ Record the exact source commit SHA; build workflow/run ID; JUCE version and AGPL
 ## Current findings
 
 - The checked-in installer uses Steinberg's documented per-user/global VST3 locations, providing a good basis for one-installer setup.
-- The installer script currently copies only payload/VoiceMorph.vst3. It does not package license notices or corresponding source; add a no-charge source archive/link to the packaging/release workflow and place notices in the bundle or adjacent release materials.
+- The installer script still copies only payload/VoiceMorph.vst3. A separate no-charge corresponding-source asset is now required by the packaging/release workflow, and exact-version license/source links are present in Advanced Settings. Both controls still need CI/package verification; release-page notes and SHA-256 manifest carry the source link/hash.
 - Baseline install instructions require closing the DAW and rescanning afterward. No fresh install/uninstall, Sonar scan/insertion, upgrade, or validator evidence was available.
 - The baseline README states that the installer is unsigned and may trigger Windows SmartScreen. Hashes do not replace signing or remove that warning.
-- No source archive has been built from the selected AGPL branch yet, so AGPL binary release compliance is not established.
+- No source archive has been built from the selected AGPL branch yet, so AGPL binary release compliance is not established. The workflow expects the complete JUCE and Signalsmith dependency trees and verifies required license files and source commit before installer packaging.

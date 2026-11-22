@@ -5,8 +5,8 @@ This file records the intended upstream dependencies. The CMake build fetches th
 | Component | Upstream | License | Usage / condition |
 |---|---|---|---|
 | JUCE 8.0.6 | https://github.com/juce-framework/JUCE | AGPLv3 (selected) | Existing plug-in framework, used under AGPLv3 for this product. Preserve JUCE notices and provide its corresponding source with every binary release. Do not use the commercial JUCE EULA for the combined VoiceMorph product. |
-| Signalsmith Stretch | https://github.com/Signalsmith-Audio/signalsmith-stretch | MIT | Optional full-band pitch/formant comparison adapter. Preserve upstream copyright/license. |
-| Signalsmith Linear | https://github.com/Signalsmith-Audio/linear | MIT | Transitive dependency fetched by Signalsmith Stretch. Preserve its own notices. |
+| Signalsmith Stretch | https://github.com/Signalsmith-Audio/signalsmith-stretch | MIT | Optional full-band pitch/formant comparison adapter, pinned at `57b93f4e9206a089a45387eaa39bdc9f310d3308`. Preserve upstream copyright/license. |
+| Signalsmith Linear | https://github.com/Signalsmith-Audio/linear | MIT | Transitive dependency pinned by the Signalsmith Stretch CMake file at `0.3.1`. Preserve its own notices. |
 | WORLD | https://github.com/mmorise/World | Modified BSD | Optional speech analysis backend. Preserve copyright/conditions/disclaimer from upstream LICENSE.txt. |
 | Rubber Band | https://github.com/breakfastquay/rubberband | GPL-2.0-or-later or commercial license | Not enabled or linked by default. Only add after the project's source-distribution/commercial-license decision. |
 | pbshift | https://github.com/pbtechlab/pbshift | MIT (with separate notices for third-party pieces) | Research benchmark only; not bundled or linked. Review exact revision and third-party notices before adoption. |

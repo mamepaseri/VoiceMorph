@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 #pragma once
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
@@ -55,7 +56,8 @@ private:
     juce::Label titleLabel, statusLabel, presetLabel;
     juce::ComboBox presetBox, deEssRangeBox, qualityBox;
     juce::TextButton prevPresetButton { "<" }, nextPresetButton { ">" }, aButton { "A" }, bButton { "B" },
-                    advancedButton { "ADVANCED" }, darkThemeButton { "DARK" }, lightThemeButton { "LIGHT" };
+                    advancedButton { "ADVANCED" }, darkThemeButton { "DARK" }, lightThemeButton { "LIGHT" },
+                    licenseButton { "AGPLv3 / NO WARRANTY" }, sourceButton { "SOURCE CODE" };
     juce::ToggleButton bypassButton { "BYPASS" }, consonantButton { "CONSONANT PRESERVE" }, transientButton { "TRANSIENT PRESERVE" }, deEssBypassButton { "DE-ESSER OFF" };
     juce::Slider inputGainSlider, outputGainSlider, voiceMixSlider, pitchSlider, formantSlider,
                  trackingSlider, pitchDynamicsSlider, breathSlider, deEssIntensitySlider, deEssMixSlider;

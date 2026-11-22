@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-only
 #include "../Source/Dsp/SpeechFeatureAnalyzer.h"
 #include "../Source/Dsp/PitchContourMapper.h"
 #include "../Source/Dsp/AdaptivePeriodicSplitter.h"
