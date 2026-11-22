@@ -10,7 +10,7 @@ The installer is unsigned, so Windows SmartScreen may show an unfamiliar-app war
 
 ## Automatic Windows releases
 
-After the Windows x64 VST3 build (Signalsmith ON and OFF) and DSP test suite both pass on `main`, the packaging workflow takes the Signalsmith ON artifact, validates and smoke-tests the installer, then publishes one versioned ZIP to GitHub Releases. The release version comes from `project(VERSION ...)` in `CMakeLists.txt`. Existing tags are never overwritten, and repeat builds for an already published version do not create duplicate downloadable artifacts. A package-only or manual Actions run cannot publish unless it refers to a successful main-branch Windows VST3 build and the same commit has passing DSP tests.
+After the Windows x64 VST3 build (Signalsmith ON and OFF) and DSP test suite both pass on `main`, the packaging workflow takes the Signalsmith ON artifact, validates and smoke-tests the installer, then publishes the direct installer EXE, a ZIP copy, and SHA-256 checksums to GitHub Releases. The release version comes from `project(VERSION ...)` in `CMakeLists.txt`; `RELEASE_CHANNEL` selects `alpha`, `beta`, or `stable`. Alpha and beta releases appear as GitHub pre-releases and include the same downloadable Windows installer EXE. Use a new version number for every release, including when promoting a pre-release to stable: published versions and tags are never reused or repurposed. Repeated builds of an already published version do not create duplicate releases. A package-only or manual Actions run cannot publish unless it refers to a successful main-branch Windows VST3 build and the same commit has passing DSP tests.
 
 ## 0.8.3 changes
 

@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/package-installer.yml'
       - 'installer/**'
+      - 'RELEASE_CHANNEL'
       - 'README.md'
   workflow_run:
     workflows: ["Windows VST3 hybrid prototype build", "DSP tests"]
@@ -137,8 +138,15 @@ jobs:
           $versionLine = Select-String -Path "CMakeLists.txt" -Pattern '^project\(VoiceMorph VERSION ([0-9]+\.[0-9]+\.[0-9]+)'
           if (-not $versionLine) { throw "Could not read VoiceMorph version from CMakeLists.txt." }
           $version = $versionLine.Matches[0].Groups[1].Value
+          $releaseChannel = (Get-Content -LiteralPath "RELEASE_CHANNEL" -Raw).Trim().ToLowerInvariant()
+          if ($releaseChannel -notin @("stable", "alpha", "beta")) {
+            throw "RELEASE_CHANNEL must be stable, alpha, or beta."
+          }
+          $isPrerelease = if ($releaseChannel -eq "stable") { "false" } else { "true" }
           "APP_VERSION=$version" >> $env:GITHUB_ENV
-          "Staged VoiceMorph $version bundle from successful Signalsmith ON build."
+          "RELEASE_CHANNEL=$releaseChannel" >> $env:GITHUB_ENV
+          "IS_PRERELEASE=$isPrerelease" >> $env:GITHUB_ENV
+          "Staged VoiceMorph $version ($releaseChannel) bundle from successful Signalsmith ON build."
 
       - name: Install Inno Setup
         if: steps.source.outputs.ready == 'true'
@@ -215,12 +223,14 @@ jobs:
         uses: actions/github-script@v7
         env:
           APP_VERSION: ${{ env.APP_VERSION }}
+          IS_PRERELEASE: ${{ env.IS_PRERELEASE }}
           SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const tag = "v" + process.env.APP_VERSION;
+            const wantsPrerelease = process.env.IS_PRERELEASE === "true";
             const { data: sourceRun } = await github.rest.actions.getWorkflowRun({
               owner, repo, run_id: Number(process.env.SOURCE_RUN_ID)
             });
@@ -246,6 +256,11 @@ jobs:
             try {
               const { data: release } = await github.rest.repos.getReleaseByTag({ owner, repo, tag });
               if (release.draft) {
+                if (release.prerelease !== wantsPrerelease) {
+                  core.setOutput("publish", "false");
+                  core.warning("The existing draft release channel differs from RELEASE_CHANNEL. Bump the CMake project version; published versions are never repurposed.");
+                  return;
+                }
                 core.setOutput("publish", "true");
                 core.notice("Resuming the existing draft release for " + tag + ".");
                 return;
@@ -255,16 +270,7 @@ jobs:
             }
 
             core.setOutput("publish", "false");
-            core.warning("Version " + tag + " was already published. Validation completed; no duplicate installer artifact or release was created.");
-
-      - name: Upload versioned installer
-        if: steps.release_gate.outputs.publish == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: VoiceMorph-Setup-x64-${{ env.APP_VERSION }}
-          path: dist/VoiceMorph-Setup-x64-${{ env.APP_VERSION }}.exe
-          if-no-files-found: error
-          retention-days: 90
+            core.warning("Version " + tag + " was already published. Validation completed; no duplicate release was created.");
 
       - name: Create release archive
         if: steps.release_gate.outputs.publish == 'true'
@@ -286,12 +292,17 @@ jobs:
         uses: actions/github-script@v7
         env:
           APP_VERSION: ${{ env.APP_VERSION }}
+          RELEASE_CHANNEL: ${{ env.RELEASE_CHANNEL }}
+          IS_PRERELEASE: ${{ env.IS_PRERELEASE }}
           SOURCE_RUN_ID: ${{ steps.source.outputs.run_id }}
         with:
           script: |
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const version = process.env.APP_VERSION;
+            const channel = process.env.RELEASE_CHANNEL;
+            const isPrerelease = process.env.IS_PRERELEASE === "true";
+            const channelLabel = channel.charAt(0).toUpperCase() + channel.slice(1);
             const tag = "v" + version;
             const { data: sourceRun } = await github.rest.actions.getWorkflowRun({
               owner, repo, run_id: Number(process.env.SOURCE_RUN_ID)
@@ -338,6 +349,10 @@ jobs:
                 core.warning("Release skipped: tag " + tag + " already has a published release. Bump the CMake project version for a new release.");
                 return;
               }
+              if (existing.prerelease !== isPrerelease) {
+                core.warning("Release skipped: draft channel differs from RELEASE_CHANNEL. Bump the CMake project version instead of repurposing the draft.");
+                return;
+              }
               release = existing;
             } else {
               try {
@@ -346,15 +361,14 @@ jobs:
                   repo,
                   tag_name: tag,
                   target_commitish: sourceRun.head_sha,
-                  name: "VoiceMorph " + version,
-                  body: "## VoiceMorph " + version + " — Experimental beta\n\n" +
-                    "Adds an independent Pitch Dynamics control that expands voiced pitch movement around a slow phrase baseline. " +
-                    "See README.md and CHANGELOG.md for the A/B measurements and configuration details.\n\n" +
+                  name: "VoiceMorph " + version + " " + channelLabel,
+                  body: "## VoiceMorph " + version + " — " + channelLabel + (isPrerelease ? " pre-release" : " release") + "\n\n" +
+                    "See README.md and CHANGELOG.md for this version's changes, measurements, and configuration details.\n\n" +
                     "Build: Windows x64 VST3, Signalsmith Stretch ON. DSP CI and installer install/uninstall smoke test must pass.\n\n" +
                     "Limitations: synthetic contour tests do not establish natural voice quality. No Cakewalk Sonar / Zoom UAC-232 listening validation was performed; robotic or warbly artifacts may remain. " +
                     "The installer is unsigned and Windows SmartScreen may show a warning. See LICENSING.md and THIRD_PARTY_NOTICES.md.",
                   draft: true,
-                  prerelease: true,
+                  prerelease: isPrerelease,
                   generate_release_notes: false
                 });
                 release = created;
@@ -406,7 +420,7 @@ jobs:
 
             if (release.draft) {
               await github.rest.repos.updateRelease({
-                owner, repo, release_id: release.id, draft: false, prerelease: true
+                owner, repo, release_id: release.id, draft: false, prerelease: isPrerelease
               });
             }
             core.notice("Published " + assetName + " and direct installer assets to " + release.html_url);
