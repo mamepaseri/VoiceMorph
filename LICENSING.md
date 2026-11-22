@@ -1,11 +1,21 @@
-# Licensing decision required before public distribution
+# VoiceMorph licensing
 
-This repository contains original VoiceMorph code and optional third-party integrations. The current JUCE-based plug-in target fetches JUCE 8.0.6, whose framework modules are dual-licensed under AGPLv3 or a commercial JUCE licence.
+## Selected route
 
-The repository does not yet assign a project-wide licence to the original VoiceMorph source. Do not assume that the code is MIT, BSD, or otherwise permissively licensed. Before making the repository public or distributing binaries, the owner must choose and record one of these routes:
+The VoiceMorph project owner selected the GNU Affero General Public License version 3 (AGPL-3.0-only) for the public source repository and the JUCE-based product, effective for the stabilization candidate containing this notice. The exact license text is in LICENSE.
 
-1. **Open-source route:** use JUCE under AGPLv3 and review the obligations for the combined distributed work. Add the complete project licence text and SPDX metadata after that decision.
-2. **Commercial/proprietary route:** obtain the appropriate commercial JUCE licence and record the terms that apply to VoiceMorph and its distributions.
-3. **Framework migration:** replace JUCE with a framework whose licence matches the intended distribution model, then re-evaluate all dependency notices.
+JUCE 8.0.6 is used under its AGPLv3 option, not under the JUCE Starter/Indie/Pro EULA. Do not combine or advertise the two routes for the same product. This route has no JUCE Starter revenue cap, but AGPL obligations apply when source and binaries are conveyed.
 
-See `THIRD_PARTY_NOTICES.md` for the current dependency inventory. Signalsmith Stretch is MIT-licensed; WORLD is modified BSD. These permissive DSP licences do not override JUCE's licensing terms.
+## Release requirements
+
+- Keep the complete corresponding source for every binary available at no charge, including the exact VoiceMorph source, build scripts, JUCE source and enabled dependency revisions needed to generate, install, run, and modify the released plug-in.
+- Put a clear link to that exact source archive beside every VST3 installer/ZIP and maintain availability while the binary is offered.
+- Include LICENSE and THIRD_PARTY_NOTICES in the repository and release materials. Preserve upstream notices and conditions for Signalsmith Stretch (MIT) and WORLD (modified BSD).
+- Provide appropriate AGPL legal notices in the plug-in's interactive interface and a visible route to the license and source.
+- Do not impose DRM or terms that restrict users' AGPL rights to modify and redistribute the plug-in.
+
+The selected route does not itself validate contributor rights, binary/source correspondence, installer contents, or release workflow. Those are checked per candidate in docs/DISTRIBUTION_COMPLIANCE.md and docs/STABILIZATION_ACCEPTANCE.md.
+
+The existing public v0.8.3 release assets and tag are preserved; this branch does not rebuild or replace them. Future release candidates must pass the AGPL source and notice gates before publication.
+
+See THIRD_PARTY_NOTICES.md for the dependency inventory and docs/LICENSING_ROUTE_REVIEW.md for the route comparison.
