@@ -1,44 +1,35 @@
 # Distribution compliance and drop-in installation gates
 
-Status: proposal for the 0.9.0 stabilization branch; no license route has been elected and no source-code release fix has been integrated.
+Status: AGPL-3.0-only selected by the project owner on 2026-11-22. LICENSE is present on this stabilization branch. The v0.8.3 tag and release assets remain unchanged; this branch is not a new binary release.
 
-## Non-negotiable release record
+## Release record required for every binary
 
-Every binary release must record: exact source commit SHA; the chosen JUCE route (Starter EULA or AGPLv3); license owner; release date; JUCE version; enabled optional dependencies; installer/ZIP SHA-256; build and validation results; and source/notice links. Release publication must stop when the license route is blank or its requirements have not been attested.
+Record the exact source commit SHA; build workflow/run ID; JUCE version and AGPLv3 route; enabled dependency revisions; source archive and installer/ZIP SHA-256 values; validator and host-test results; and links to LICENSE, third-party notices, and corresponding source. Block publication if source, binary, notices, or hashes do not all identify the same candidate.
 
-Do not infer an open-source license from public GitHub access. A LICENSE file and matching SPDX notices must explicitly identify the project license. The two JUCE routes are not to be mixed for the same combined product.
+## AGPLv3 compliance controls
 
-## Route-specific evidence
-
-### JUCE Starter EULA
-
-- Record the legal person/entity licensing JUCE and the Framework Users who contribute to or modify JUCE-dependent work; verify required seats under the current EULA.
-- Record the owner's previous 12-month revenue/funding scope and verify it remains within the applicable $20,000 Starter limit before each binary release.
-- Record the major JUCE version covered by the perpetual license. Do not treat free Starter as a source license for VoiceMorph or a grant of downstream reuse rights.
-- Keep the publicly readable VoiceMorph source's license status clear. Preserve JUCE and all dependency notices in installer/release materials.
-- Do not apply AGPLv3 to the same JUCE-combined product under this route without a reviewed licensing basis.
-
-### JUCE under AGPLv3
-
-- Add the complete AGPLv3 license text and project copyright/license notices; verify that every VoiceMorph contribution can be licensed this way.
-- For every binary, publish complete Corresponding Source for the exact commit, including the source/build files and scripts needed to configure, build and install it. Pin and expose the JUCE 8.0.6 source and exact enabled dependency revisions; preserve compatible MIT/BSD notices.
-- Place an equivalent, no-charge source download/link beside the VST3 installer and ZIP, and keep the source available while the binary is offered.
-- Add an easy-to-find in-plugin About/Licenses view with the appropriate AGPL notices, warranty statement, and link/location for the license and source.
-- Keep DRM/technical restrictions from preventing recipient rights granted by AGPLv3; confirm installer/update mechanisms do not block modified builds.
+- Keep the complete AGPLv3 license text and project-level license notices in the source repository and distribution package.
+- Confirm all original VoiceMorph contributions can be licensed under AGPL-3.0-only. The accessible commit history reviewed so far shows author identities mamepaseri and codex; check for employer, contractor, and other third-party rights before formal release.
+- Build a Corresponding Source archive for the exact released binary. Include VoiceMorph source, CMake/build/install scripts, JUCE 8.0.6 source, and source for the enabled pinned dependencies (including required submodules), plus any patches/configuration needed to generate, install, run and modify the plug-in.
+- Publish the source archive at no charge beside the installer and ZIP; include a plain source link in release notes, keep it available while offering that binary, and verify the archive hash/commit metadata.
+- Preserve upstream conditions and notices for Signalsmith Stretch and Signalsmith Linear (MIT) and WORLD (modified BSD) when enabled. Do not include research-only dependencies unless their exact license/notices have been reviewed.
+- Add an accessible About/Licenses view in the plug-in with the appropriate AGPL legal notices, warranty information, and license/source location.
+- Do not ship DRM, terms, or installer behavior that prevents users from modifying and redistributing AGPL-covered builds.
+- Do not use the JUCE Starter/Indie/Pro EULA for this same combined VoiceMorph product.
 
 ## Drop-in VST3 acceptance
 
 - Install the bundle through one Windows x64 installer to the VST3-standard per-user path by default; offer machine-wide installation only with appropriate elevation. Do not require manual folder copying.
-- The baseline installer script targets %LOCALAPPDATA%/Programs/Common/VST3 for per-user setup and %ProgramFiles%/Common Files/VST3 for all-user setup, matching Steinberg's documented Windows VST3 locations. Verify the final bundle structure and architecture in a clean Windows user profile.
-- Provide a clean uninstall that removes the bundle but does not remove user projects or unrelated plug-ins.
-- Test install, launch, host scan, insertion, audio pass-through/processing, saved project reload, upgrade-over-install, and uninstall in Cakewalk Sonar. A DAW restart or one explicit plug-in rescan may still be needed; do not promise that an installer can force every host to scan immediately.
-- Keep the SmartScreen/signing state clear. Current README states the installer is unsigned; include the SHA-256 manifest and verify hashes against the exact release files.
-- If AGPLv3 is selected, the installer/About page and adjacent release page must expose the correct license and exact source download for that binary.
+- The current Inno Setup script targets %LOCALAPPDATA%/Programs/Common/VST3 per-user and %ProgramFiles%/Common Files/VST3 machine-wide, matching Steinberg's documented Windows locations. Verify bundle structure and architecture in a clean Windows profile.
+- Provide a clean uninstall that removes the VoiceMorph bundle without removing user projects or unrelated plug-ins.
+- Test install, DAW launch/scan, plug-in insertion, audio processing, saved project reload, upgrade-over-install, and uninstall in Cakewalk Sonar. A DAW restart or one explicit plug-in rescan may still be needed; do not promise every host will scan immediately.
+- Keep SmartScreen/signing state clear. Current README says the installer is unsigned; include and verify SHA-256 values for the exact release files.
+- Put the AGPL license and corresponding-source link beside each installer/ZIP and provide the legal notices in the plug-in UI.
 
 ## Current findings
 
-- The checked-in Inno Setup script installs the VST3 bundle to the documented per-user/global VST3 locations, which is a good basis for one-installer use.
-- The script currently copies only payload/VoiceMorph.vst3 into the destination. It does not visibly package third-party/license notices or AGPL source links; those need an installer/release design before AGPL binary distribution.
-- Baseline documentation says to close the DAW, install, then rescan its VST3 plug-ins. No fresh install/uninstall, host scan, or DAW insertion result was available in this review.
-- The baseline README states the installer is unsigned and may trigger Windows SmartScreen. Hashing does not replace signing or remove that warning.
-- A draft checklist cannot establish actual compliance: the selected route, eligibility/rights evidence, package contents, hashes, and validation run must be attached to each release candidate.
+- The checked-in installer uses Steinberg's documented per-user/global VST3 locations, providing a good basis for one-installer setup.
+- The installer script currently copies only payload/VoiceMorph.vst3. It does not package license notices or corresponding source; add a no-charge source archive/link to the packaging/release workflow and place notices in the bundle or adjacent release materials.
+- Baseline install instructions require closing the DAW and rescanning afterward. No fresh install/uninstall, Sonar scan/insertion, upgrade, or validator evidence was available.
+- The baseline README states that the installer is unsigned and may trigger Windows SmartScreen. Hashes do not replace signing or remove that warning.
+- No source archive has been built from the selected AGPL branch yet, so AGPL binary release compliance is not established.
