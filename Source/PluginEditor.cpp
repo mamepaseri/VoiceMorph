@@ -135,7 +135,7 @@ namespace
 VoiceMorphLookAndFeel::VoiceMorphLookAndFeel()
 {
     turboTypeface = juce::Typeface::createSystemTypefaceFor (
-        BinaryData::TurboRacersRegular_nA0zg_ttf, BinaryData::TurboRacersRegular_nA0zg_ttfSize);
+        BinaryData::TurboRacersRegularnA0zg_ttf, BinaryData::TurboRacersRegularnA0zg_ttfSize);
     setLightTheme (false);
 }
 
