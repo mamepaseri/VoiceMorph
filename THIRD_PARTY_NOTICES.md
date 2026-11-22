@@ -4,7 +4,7 @@ This file records the intended upstream dependencies. The CMake build fetches th
 
 | Component | Upstream | License | Usage / condition |
 |---|---|---|---|
-| JUCE 8.0.6 | https://github.com/juce-framework/JUCE | AGPLv3 or commercial JUCE license | Existing plug-in framework. A closed-source distributed product may require a commercial JUCE license. |
+| JUCE 8.0.6 | https://github.com/juce-framework/JUCE | AGPLv3 (selected) | Existing plug-in framework, used under AGPLv3 for this product. Preserve JUCE notices and provide its corresponding source with every binary release. Do not use the commercial JUCE EULA for the combined VoiceMorph product. |
 | Signalsmith Stretch | https://github.com/Signalsmith-Audio/signalsmith-stretch | MIT | Optional full-band pitch/formant comparison adapter. Preserve upstream copyright/license. |
 | Signalsmith Linear | https://github.com/Signalsmith-Audio/linear | MIT | Transitive dependency fetched by Signalsmith Stretch. Preserve its own notices. |
 | WORLD | https://github.com/mmorise/World | Modified BSD | Optional speech analysis backend. Preserve copyright/conditions/disclaimer from upstream LICENSE.txt. |
@@ -14,7 +14,7 @@ This file records the intended upstream dependencies. The CMake build fetches th
 
 ## Important distinction: project framework vs DSP engines
 
-Open-source DSP components do not automatically make the complete plug-in permissively licensed. JUCE modules are dual-licensed under AGPLv3 and a commercial JUCE license. If VoiceMorph is distributed as a closed-source/proprietary plug-in, the JUCE licensing route must be resolved before release. If an AGPL-compatible open-source release is intended, the complete combined work and distribution obligations must be reviewed. An alternative plug-in framework can be evaluated before the project becomes large, but changing frameworks now would be a separate migration.
+Open-source DSP components do not automatically make the complete plug-in permissively licensed. The owner selected JUCE's AGPLv3 route for this product. VoiceMorph's complete covered source and all required notices must be provided under AGPLv3, with corresponding source for every binary release. Signalsmith Stretch and WORLD retain their own MIT/modified-BSD notices; they do not replace JUCE/VoiceMorph obligations.
 
 ## No proprietary plug-in implementation reused
 
