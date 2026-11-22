@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.5 — 2026-11-23 — Experimental beta
+
+- Fixed low-confidence voice-path dropouts at quiet onsets, fricatives, intermittent F0 loss, and fading tails. A fast local confidence estimate protects uncertain residual detail while the slower estimate keeps periodic splitting stable.
+- Kept Breath, Consonant, and Transient Preserve controls independent from the low-confidence fallback. At Mix 100%, the separate dry-reference branch is excluded; uncertain or unvoiced residual audio may still pass through unshifted to avoid gaps.
+- Added deterministic offline regressions for Mix endpoints, unvoiced audio at 100% Mix, phrase transitions, transient preservation, neutral level, and the Signalsmith-enabled pitch/latency path.
+- Added the Graillon FREE 3.2 product and user guide as design reference. Applied only relevant control organization and signal-path concepts; no key/scale correction or doubler was added.
+- Linux strict-warning, sanitizer, and Signalsmith-enabled DSP CI passed. Windows x64 VST3 CI passed with Signalsmith enabled and disabled.
+- This release does not claim natural voice quality or Sonar validation. Robotic or warbly artifacts may remain.
+
 ## 0.8.4 — 2026-11-23 — Experimental beta
 
 - Embedded Turbo Racers Regular in the plug-in so the dashboard lettering is consistent across systems and DAWs.

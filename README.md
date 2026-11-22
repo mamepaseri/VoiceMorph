@@ -1,16 +1,22 @@
-# VoiceMorph — Windows x64 VST3 experimental beta 0.8.4
+# VoiceMorph — Windows x64 VST3 experimental beta 0.8.5
 
 VoiceMorph is an experimental Windows x64 VST3 voice-transformation plug-in. It uses pitch/formant processing and a hybrid periodic/residual signal path. This is an early prototype: transformed speech can still sound robotic or warbly.
 
 ## Download and install
 
-Get the latest Windows x64 installer from [GitHub Releases](https://github.com/mamepaseri/VoiceMorph/releases/latest). Download the direct [Windows x64 installer EXE](https://github.com/mamepaseri/VoiceMorph/releases/download/v0.8.4/VoiceMorph-Setup-x64-0.8.4.exe), or the [ZIP copy](https://github.com/mamepaseri/VoiceMorph/releases/download/v0.8.4/VoiceMorph-Setup-x64-0.8.4.zip). The installer offers per-user installation by default and can also install for all users. Close your DAW before installing or uninstalling, then rescan its VST3 plug-ins.
+Get the latest Windows x64 installer from [GitHub Releases](https://github.com/mamepaseri/VoiceMorph/releases/latest). Download the direct [Windows x64 installer EXE](https://github.com/mamepaseri/VoiceMorph/releases/download/v0.8.5/VoiceMorph-Setup-x64-0.8.5.exe), or the [ZIP copy](https://github.com/mamepaseri/VoiceMorph/releases/download/v0.8.5/VoiceMorph-Setup-x64-0.8.5.zip). The installer offers per-user installation by default and can also install for all users. Close your DAW before installing or uninstalling, then rescan its VST3 plug-ins.
 
 The installer is unsigned, so Windows SmartScreen may show an unfamiliar-app warning. It installs the built `VoiceMorph.vst3` bundle and includes an uninstaller.
 
 ## Automatic Windows releases
 
 After the Windows x64 VST3 build (Signalsmith ON and OFF) and DSP test suite both pass on `main`, the packaging workflow takes the Signalsmith ON artifact, validates and smoke-tests the installer, then publishes the direct installer EXE, a ZIP copy, and SHA-256 checksums to GitHub Releases. The release version comes from `project(VERSION ...)` in `CMakeLists.txt`; `RELEASE_CHANNEL` selects `alpha`, `beta`, or `stable`. Alpha and beta releases appear as GitHub pre-releases and include the same downloadable Windows installer EXE. Use a new version number for every release, including when promoting a pre-release to stable: published versions and tags are never reused or repurposed. Repeated builds of an already published version do not create duplicate releases. A package-only or manual Actions run cannot publish unless it refers to a successful main-branch Windows VST3 build and the same commit has passing DSP tests.
+
+## 0.8.5 changes
+
+- Added a residual safety path for quiet onsets, unvoiced consonants, intermittent F0 tracking, and fading tails. A fast confidence estimate responds at voiced/unvoiced boundaries while the slower periodicity estimate keeps voiced splitting stable.
+- At Voice Mix 100%, the separate delayed dry-reference branch remains out of the blend. If pitch classification is unreliable, the wet hybrid path can still carry unshifted residual audio as a safety fallback; this behavior is independent of Breath, Consonant, and Transient Preserve settings.
+- Added deterministic offline regressions for quiet onsets, stale pitch during frication, intermittent F0, fading tails, unvoiced audio at 100% Mix, and neutral level across the Voice Mix range. Linux strict-warning, sanitizer, and Signalsmith-enabled DSP CI passed; Windows x64 VST3 builds passed with Signalsmith ON and OFF.
 
 ## 0.8.4 changes
 
@@ -44,8 +50,8 @@ After the Windows x64 VST3 build (Signalsmith ON and OFF) and DSP test suite bot
 - **Pitch Dynamics:** scales voiced pitch movement relative to a slow local phrase baseline; it is not a static pitch increase or neural speaker-identity conversion.
 
 - **Pitch / Formant:** control pitch and spectral-envelope shift through the optional Signalsmith Stretch engine.
-- **Voice Mix:** blend the processed voice path with the delayed dry reference. At 100%, only transformed audio and explicitly preserved residual detail are routed.
-- **Breath Preserve / Transient Preserve:** control aperiodic residual and detected transient content on the wet path.
+- **Voice Mix:** blends the transformed path with a latency-aligned dry reference. At 100%, the separate dry-reference blend is removed. When pitch or periodicity confidence is low, the hybrid path intentionally retains unshifted residual audio to prevent gaps; this fallback can leave uncertain or unvoiced sounds less shifted.
+- **Breath Preserve / Transient Preserve:** control classified aperiodic residual and detected transients. The low-confidence safety fallback is separate from these controls.
 - **Voice Mode:** selects one of three interface modes. Dedicated mode-specific DSP behavior is not implemented yet.
 - **Input / Output:** input and output gain staging.
 - **Advanced:** opens the de-esser and processing settings in a separate window.

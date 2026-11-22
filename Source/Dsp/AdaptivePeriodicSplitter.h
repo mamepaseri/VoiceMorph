@@ -8,6 +8,9 @@ struct SplitSample
     float periodic = 0.0f;
     float residual = 0.0f;
     float transient = 0.0f;
+    // Tracker and local-periodicity trust, before user-controlled preservation
+    // amounts reduce the periodic stem. Used to retain uncertain input detail.
+    float classificationConfidence = 0.0f;
 };
 
 // First-pass, one-period predictive split. For strongly periodic voiced audio,
@@ -27,7 +30,8 @@ public:
     SplitSample processSample (float input,
                                float pitchHz,
                                float voiceConfidence,
-                               bool preserveTransients = true) noexcept;
+                               bool preserveTransients = true,
+                               float aperiodicProtection = 0.0f) noexcept;
 
 private:
     static constexpr std::size_t delayBufferSize = 4096;
@@ -41,9 +45,13 @@ private:
     float currentDelaySamples = 0.0f;
     float delaySmoothingCoefficient = 0.0f;
     float correlationSmoothingCoefficient = 0.0f;
+    float fastCorrelationSmoothingCoefficient = 0.0f;
     float correlatedInputEnergy = 0.0f;
     float correlatedDelayEnergy = 0.0f;
     float correlatedCrossEnergy = 0.0f;
+    float fastCorrelatedInputEnergy = 0.0f;
+    float fastCorrelatedDelayEnergy = 0.0f;
+    float fastCorrelatedCrossEnergy = 0.0f;
     float amplitudeAttackCoefficient = 0.0f;
     float amplitudeReleaseCoefficient = 0.0f;
     float amplitudeEnvelope = 0.0f;

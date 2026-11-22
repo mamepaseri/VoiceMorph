@@ -1,6 +1,16 @@
-# Build / validation status — 2026-11-19 — Prototype 0.8.0
+# Build / validation status — 2026-11-23 — 0.8.5 Beta
 
-## Validated in this workspace
+## 0.8.5 release-candidate validation
+
+- Candidate source commit `67c28f7ebb6839e82b426a0d60e9c6fba3a5a959` passed [Linux DSP CI](https://github.com/mamepaseri/VoiceMorph/actions/runs/45068254321): strict warnings, AddressSanitizer, UndefinedBehaviorSanitizer, and Signalsmith-enabled synthetic DSP quality tests.
+- The same candidate passed [Windows x64 VST3 CI](https://github.com/mamepaseri/VoiceMorph/actions/runs/45068254248) with Signalsmith ON and OFF; both VST3 build artifacts were uploaded.
+- The hybrid path now retains residual audio while pitch/local-periodicity confidence is uncertain. A faster confidence estimate releases that safety path promptly at voiced-to-fricative transitions while the slower estimate remains responsible for stable periodic splitting.
+- At Voice Mix 100%, the separate delayed dry-reference blend is excluded. Low-confidence or unvoiced portions can still pass through as unshifted residual safety audio, independently of Breath, Consonant, and Transient Preserve. This can make those uncertain parts less shifted.
+- These checks cover compilation and deterministic synthetic signals. They do not establish natural voice quality, labelled Japanese speech accuracy, or runtime behavior in Cakewalk Sonar / Zoom UAC-232. Robotic or warbly artifacts may remain.
+- Stable v0.8.3 and the already published v0.8.4 beta remain unchanged.
+
+## Earlier local validation (before 0.8.5)
+
 
 - `cmake --list-presets=all` recognizes both Windows VS2022 configure presets and both build presets.
 - Standalone speech-analysis / periodic-splitter / recombiner / hybrid-path / PSOLA-experiment / optional-adapter-stub tests configure and build with CMake 3.31.6 and GCC 14.2.
@@ -9,7 +19,7 @@
 - The 70-assertion standalone suite passes in both normal and AddressSanitizer / UndefinedBehaviorSanitizer builds.
 - A fresh standalone build passes AddressSanitizer + UndefinedBehaviorSanitizer with leak detection enabled.
 - Two uploaded 48 kHz mono MP3 recordings (18.0 s and 9.64 s) were decoded to PCM and passed through the analyzer as an unlabeled stress check. For frames with voiced confidence >= 0.40, median estimated F0 was about 173 Hz (369 frames) and 256 Hz (474 frames), respectively. These are analyzer outputs only, not ground-truth accuracy measurements; the recordings are MP3 and are not confirmed as dry-mic captures.
-- The current processor source routes the periodic stem through the optional Signalsmith hybrid facade, aligns residual/dry audio to reported latency, calls JUCE `setLatencySamples()`, and passes the Breath / Consonant / Transient Preserve parameters into the split gates. This source integration is not yet compiled as a JUCE plugin.
+- The processor routes the periodic stem through the optional Signalsmith hybrid facade, aligns residual/dry audio to reported latency, calls JUCE `setLatencySamples()`, and passes the Breath / Consonant / Transient Preserve parameters into the split gates. The candidate Windows CI run above compiled the JUCE VST3 with Signalsmith enabled and disabled; this confirms compilation and artifact creation, not host playback quality.
 - The complete source ZIP passes `unzip -t`.
 - The local Git bundle passes `git bundle verify` and records the complete local history.
 
@@ -18,10 +28,8 @@
 - `PitchSynchronousShifter` passed one synthetic 132 Hz / +7 semitone pitch-up check (about 196.7 Hz measured vs. 197.8 Hz expected). A wider manual matrix showed sizeable errors for several downward shifts at 220–400 Hz. In addition, the measured envelope alignment varied with F0. This implementation remains an experiment and is **not** connected to the plug-in's audible output.
 - `SignalsmithPitchEngine` now supports a manual 48 ms block / 12 ms interval configuration candidate and reports input latency, output latency, and their sum. The default standalone test builds this adapter with the optional dependency disabled, so it only validates honest unavailable-state reporting; it does not build or test Signalsmith itself.
 
-## Not validated in this workspace
+## Still not established by this validation
 
-- Full Visual Studio compilation of JUCE / Signalsmith / WORLD.
-- A compiled Windows VST3 / Standalone binary.
 - Runtime Signalsmith pitch/formant quality, actual stream latency, host PDC, CPU peak load, or subjective audio quality.
 - Real-time playback in Cakewalk Sonar / Zoom UAC-232.
 - Tracker / splitter reliability on labelled dry Japanese speech, breaths, voiced fricatives, and mouth clicks.
