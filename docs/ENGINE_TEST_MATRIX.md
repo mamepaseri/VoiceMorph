@@ -24,7 +24,7 @@ This is the repeatable A/B test plan for choosing an engine. Keep source WAVs, e
 
 ## Current automated analyzer tests
 
-The standalone test target currently covers 68, 82, 132, and 176 Hz harmonic signals, a quiet -60 dBFS-class 132 Hz tone, noise-like frication, silence, a single-sample transient (including the splitter's sample-domain gate), and F0 tracking at 44.1 / 48 / 96 / 192 kHz. It also checks that a stable 132 Hz sinusoid is concentrated into the periodic stem, zero confidence leaves noise in the residual, and `periodic + residual` exactly reconstructs the input. The expanded suite also checks the block-level `HybridVoicePath` contract with a deterministic fixed-latency mock transform: stereo reconstruction, variable block sizes, correct dry fallback on transform failure, and in-place buffers. These synthetic tests do not validate the actual Signalsmith engine, replace real mic recordings, or substitute for listening tests.
+The standalone suite covers 68, 82, 132, and 176 Hz harmonic signals, a quiet -60 dBFS-class 132 Hz tone, noise-like frication, silence, a single-sample transient (including the splitter's sample-domain gate), and F0 tracking at 44.1 / 48 / 96 / 192 kHz. It checks exact `periodic + residual` reconstruction, stable voiced-stem concentration, zero-confidence fallback, short plosives, stale pitch during frication, intermittent F0 loss, a quiet analyzer onset, a fading tail, and neutral level through the full Voice Mix range. The block-level `HybridVoicePath` contract also covers a deterministic fixed-latency mock transform, stereo reconstruction, variable block sizes, transform-failure fallback, and in-place buffers. These synthetic tests do not validate the actual Signalsmith engine, replace real mic recordings, or substitute for listening tests.
 
 ## Measurements
 
@@ -35,7 +35,7 @@ The standalone test target currently covers 68, 82, 132, and 176 Hz harmonic sig
 - RMS and true-peak change.
 - Average and worst-case processing time per callback.
 - Dropouts / buffer underruns.
-- Blind naturalness score against the unmodified source and RoVee reference.
+- Blind naturalness score against the unmodified source, RoVee, GVST GForm, and Graillon FREE 3.2 references. Keep source takes and settings aligned before drawing sound-quality conclusions.
 
 ## Acceptance gates
 

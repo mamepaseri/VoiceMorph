@@ -467,8 +467,8 @@ int main()
     ok &= require (consonantSwitchOffEnergy > breathProtectedEnergy * 100.0,
                    "Consonant Preserve switch independently bypasses the aperiodic protection gate");
 
-    // A 100% wet mix must not retain unvoiced input unless its preservation
-    // control is enabled. The deterministic noise exercises the unvoiced path.
+    // At 100% wet, low-confidence input must survive even when Breath Preserve
+    // is zero. The analyzer can lag behind a real fricative or quiet onset.
     std::array<float, 1024> syntheticBreath {};
     std::mt19937 residualRandom (54321);
     std::uniform_real_distribution<float> residualNoise (-0.1f, 0.1f);
@@ -486,7 +486,7 @@ int main()
         FixedDelayTransform identityTransform (0, 1);
         std::array<float, 128> blockIn {}, blockOut {}, noPitch {}, unvoiced {}, aperiodic {};
         unvoiced.fill (0.0f);
-        aperiodic.fill (1.0f);
+        aperiodic.fill (0.0f);
         std::array<const float*, 1> inPointers { blockIn.data() };
         std::array<float*, 1> outPointers { blockOut.data() };
         double outputEnergy = 0.0;
@@ -506,11 +506,260 @@ int main()
     };
     const auto noBreathResidual = processBreathResidual (0.0f);
     const auto fullBreathResidual = processBreathResidual (100.0f);
-    ok &= require (noBreathResidual.first >= 0.0 && noBreathResidual.first < 1.0e-12,
-                   "100% Voice Mix removes unvoiced residual when Breath Preserve is zero");
+    ok &= require (noBreathResidual.first > noBreathResidual.second * 0.99
+                   && noBreathResidual.first < noBreathResidual.second * 1.01,
+                   "low-confidence unvoiced audio survives at 100% Voice Mix when Breath Preserve is zero");
     ok &= require (fullBreathResidual.first > fullBreathResidual.second * 0.99
                    && fullBreathResidual.first < fullBreathResidual.second * 1.01,
-                   "Breath Preserve at 100% passes the intentional unvoiced residual at 100% Voice Mix");
+                   "low-confidence fallback keeps full unvoiced energy with Breath Preserve at 100%");
+
+    // Reproduce stale pitch/voicing controls at a vowel-to-frication boundary.
+    // Once the local one-period correlation rejects the new noise, the
+    // confidence fallback must carry it through even though the analyzer still
+    // reports the previous voiced frame.
+    HybridVoicePath staleTrackerPath;
+    ok &= require (staleTrackerPath.prepare (1, sampleRate, 128, 0, 0),
+                   "stale-tracker transition path prepares");
+    FixedDelayTransform staleTrackerTransform (0, 1);
+    std::array<float, 128> staleInput {}, staleOutput {}, stalePitch {}, staleVoiced {}, staleAperiodic {};
+    stalePitch.fill (132.0f);
+    staleVoiced.fill (1.0f);
+    std::array<const float*, 1> staleInPointers { staleInput.data() };
+    std::array<float*, 1> staleOutPointers { staleOutput.data() };
+    for (int offset = 0; offset < 4096; offset += 128)
+    {
+        for (int i = 0; i < 128; ++i)
+        {
+            const double time = static_cast<double> (offset + i) / sampleRate;
+            staleInput[static_cast<std::size_t> (i)] = static_cast<float> (0.15 * std::sin (2.0 * pi * 132.0 * time));
+        }
+        staleTrackerPath.processBlock (staleInPointers.data(), staleOutPointers.data(), 1, 128,
+                                       stalePitch.data(), staleVoiced.data(), staleAperiodic.data(), 100.0f,
+                                       fixedDelayTransform, &staleTrackerTransform, 0.0f, true, false);
+    }
+
+    double fricationInputEnergy = 0.0;
+    double fricationOutputEnergy = 0.0;
+    std::mt19937 fricationRandom (8765);
+    std::uniform_real_distribution<float> fricationNoise (-0.08f, 0.08f);
+    for (int offset = 0; offset < 1024; offset += 128)
+    {
+        for (int i = 0; i < 128; ++i)
+        {
+            const float sample = fricationNoise (fricationRandom);
+            staleInput[static_cast<std::size_t> (i)] = sample;
+            if (offset + i >= 512)
+                fricationInputEnergy += static_cast<double> (sample) * sample;
+        }
+        staleTrackerPath.processBlock (staleInPointers.data(), staleOutPointers.data(), 1, 128,
+                                       stalePitch.data(), staleVoiced.data(), staleAperiodic.data(), 100.0f,
+                                       fixedDelayTransform, &staleTrackerTransform, 0.0f, true, false);
+        if (offset >= 512)
+            for (float sample : staleOutput)
+                fricationOutputEnergy += static_cast<double> (sample) * sample;
+    }
+    ok &= require (fricationOutputEnergy > fricationInputEnergy * 0.70,
+                   "stale voiced controls cannot gate away a fricative after local periodicity falls");
+
+    // Alternating valid and missing F0 frames stress the pitch-confidence gate.
+    // With no reliable pitch, the residual path should carry the original input
+    // instead of producing periodic-stem dropouts.
+    HybridVoicePath unstablePitchPath;
+    ok &= require (unstablePitchPath.prepare (1, sampleRate, 128, 0, 0),
+                   "unstable-pitch transition path prepares");
+    FixedDelayTransform unstablePitchTransform (0, 1);
+    std::array<float, 128> unstableInput {}, unstableOutput {}, unstablePitch {}, unstableVoiced {}, unstableAperiodic {};
+    std::array<const float*, 1> unstableInPointers { unstableInput.data() };
+    std::array<float*, 1> unstableOutPointers { unstableOutput.data() };
+    double unstableInputEnergy = 0.0;
+    double unstableOutputEnergy = 0.0;
+    for (int block = 0; block < 48; ++block)
+    {
+        const bool pitchAvailable = block % 2 == 0;
+        for (int i = 0; i < 128; ++i)
+        {
+            const int absoluteSample = block * 128 + i;
+            const float sample = static_cast<float> (0.14 * std::sin (2.0 * pi * 132.0 * absoluteSample / sampleRate));
+            unstableInput[static_cast<std::size_t> (i)] = sample;
+            unstablePitch[static_cast<std::size_t> (i)] = pitchAvailable ? 132.0f : 0.0f;
+            unstableVoiced[static_cast<std::size_t> (i)] = pitchAvailable ? 1.0f : 0.0f;
+            unstableInputEnergy += static_cast<double> (sample) * sample;
+        }
+        unstablePitchPath.processBlock (unstableInPointers.data(), unstableOutPointers.data(), 1, 128,
+                                       unstablePitch.data(), unstableVoiced.data(), unstableAperiodic.data(), 100.0f,
+                                       fixedDelayTransform, &unstablePitchTransform, 0.0f, false, false);
+        for (float sample : unstableOutput)
+            unstableOutputEnergy += static_cast<double> (sample) * sample;
+    }
+    ok &= require (unstableOutputEnergy > unstableInputEnergy * 0.70,
+                   "intermittent F0 loss falls back to audio instead of causing a level collapse");
+
+    // Compare input/output level at quiet, medium, and normal input amplitudes.
+    // The quiet case deliberately has no trusted F0; the others exercise a
+    // partially trusted and a confident periodic split.
+    const std::array<float, 3> levelTestAmplitudes { 0.001f, 0.01f, 0.20f };
+    for (const float amplitude : levelTestAmplitudes)
+    {
+        HybridVoicePath levelPath;
+        const bool prepared = levelPath.prepare (1, sampleRate, 128, 0, 0);
+        FixedDelayTransform levelTransform (0, 1);
+        std::array<float, 128> levelInput {}, levelOutput {}, levelPitch {}, levelVoiced {}, levelAperiodic {};
+        const float confidence = amplitude < 0.002f ? 0.0f : (amplitude < 0.05f ? 0.60f : 1.0f);
+        levelPitch.fill (confidence > 0.0f ? 132.0f : 0.0f);
+        levelVoiced.fill (confidence);
+        std::array<const float*, 1> levelInPointers { levelInput.data() };
+        std::array<float*, 1> levelOutPointers { levelOutput.data() };
+        double inputEnergy = 0.0;
+        double outputEnergy = 0.0;
+        for (int offset = 0; offset < 8192; offset += 128)
+        {
+            for (int i = 0; i < 128; ++i)
+            {
+                const int absoluteSample = offset + i;
+                const float sample = amplitude * static_cast<float> (
+                    std::sin (2.0 * pi * 132.0 * absoluteSample / sampleRate));
+                levelInput[static_cast<std::size_t> (i)] = sample;
+            }
+            levelPath.processBlock (levelInPointers.data(), levelOutPointers.data(), 1, 128,
+                                    levelPitch.data(), levelVoiced.data(), levelAperiodic.data(), 100.0f,
+                                    fixedDelayTransform, &levelTransform, 0.0f, false, false);
+            if (offset >= 4096)
+                for (int i = 0; i < 128; ++i)
+                {
+                    const auto index = static_cast<std::size_t> (i);
+                    inputEnergy += static_cast<double> (levelInput[index]) * levelInput[index];
+                    outputEnergy += static_cast<double> (levelOutput[index]) * levelOutput[index];
+                }
+        }
+        const double levelRatio = inputEnergy > 0.0 ? std::sqrt (outputEnergy / inputEnergy) : 0.0;
+        ok &= require (prepared && levelRatio > 0.75 && levelRatio < 1.10,
+                       "input amplitude " + std::to_string (amplitude)
+                       + " retains output level without automatic gain correction (ratio "
+                       + std::to_string (levelRatio) + ")");
+    }
+
+    // Exercise the complete streaming analyzer -> split -> transform -> mix
+    // route on a quiet onset, an unvoiced consonant, a resumed vowel, and a
+    // fading tail. The transform is an identity mock so this isolates routing.
+    constexpr int preRollSamples = 3840;
+    constexpr int onsetVowelSamples = 5760;
+    constexpr int fricativeSamples = 1920;
+    constexpr int resumedVowelSamples = 4800;
+    constexpr int fadingTailSamples = 2880;
+    constexpr int trailingSilenceSamples = 1440;
+    const int transitionLength = preRollSamples + onsetVowelSamples + fricativeSamples
+                               + resumedVowelSamples + fadingTailSamples + trailingSilenceSamples;
+    std::vector<float> transitionInput (static_cast<std::size_t> (transitionLength), 0.0f);
+    std::vector<float> transitionOutput (static_cast<std::size_t> (transitionLength), 0.0f);
+    std::mt19937 transitionNoiseRandom (9123);
+    std::uniform_real_distribution<float> transitionNoise (-1.0f, 1.0f);
+    const int onsetStart = preRollSamples;
+    for (int i = 0; i < onsetVowelSamples; ++i)
+    {
+        const float fadeIn = std::min (1.0f, static_cast<float> (i + 1) / 240.0f);
+        const double time = static_cast<double> (i) / sampleRate;
+        transitionInput[static_cast<std::size_t> (onsetStart + i)] = fadeIn * static_cast<float> (
+            0.16 * std::sin (2.0 * pi * 132.0 * time) + 0.04 * std::sin (2.0 * pi * 264.0 * time));
+    }
+    const int fricativeStart = onsetStart + onsetVowelSamples;
+    for (int i = 0; i < fricativeSamples; ++i)
+    {
+        const float fadeIn = std::min (1.0f, static_cast<float> (i + 1) / 240.0f);
+        const float fadeOut = std::min (1.0f, static_cast<float> (fricativeSamples - i) / 240.0f);
+        const double time = static_cast<double> (i) / sampleRate;
+        transitionInput[static_cast<std::size_t> (fricativeStart + i)] = 0.06f * fadeIn * fadeOut
+            * (0.75f * transitionNoise (transitionNoiseRandom)
+               + 0.25f * static_cast<float> (std::sin (2.0 * pi * 5500.0 * time)));
+    }
+    const int resumedStart = fricativeStart + fricativeSamples;
+    for (int i = 0; i < resumedVowelSamples; ++i)
+    {
+        const double time = static_cast<double> (i) / sampleRate;
+        transitionInput[static_cast<std::size_t> (resumedStart + i)] = static_cast<float> (
+            0.14 * std::sin (2.0 * pi * 132.0 * time) + 0.035 * std::sin (2.0 * pi * 264.0 * time));
+    }
+    const int tailStart = resumedStart + resumedVowelSamples;
+    for (int i = 0; i < fadingTailSamples; ++i)
+    {
+        const float fade = 1.0f - static_cast<float> (i) / static_cast<float> (fadingTailSamples);
+        const double time = static_cast<double> (i) / sampleRate;
+        transitionInput[static_cast<std::size_t> (tailStart + i)] = fade * static_cast<float> (
+            0.14 * std::sin (2.0 * pi * 132.0 * time) + 0.035 * std::sin (2.0 * pi * 264.0 * time));
+    }
+
+    SpeechFeatureAnalyzer transitionAnalyzer;
+    transitionAnalyzer.prepare (sampleRate);
+    HybridVoicePath analyzedTransitionPath;
+    ok &= require (analyzedTransitionPath.prepare (1, sampleRate, 128, 0, 0),
+                   "analyzed transition path prepares");
+    FixedDelayTransform analyzedIdentityTransform (0, 1);
+    std::array<float, 128> analyzedInputBlock {}, analyzedOutputBlock {}, analyzedPitchBlock {},
+                           analyzedVoicedBlock {}, analyzedAperiodicBlock {};
+    std::array<const float*, 1> analyzedInPointers { analyzedInputBlock.data() };
+    std::array<float*, 1> analyzedOutPointers { analyzedOutputBlock.data() };
+    for (int offset = 0; offset < transitionLength; offset += 128)
+    {
+        const int count = std::min (128, transitionLength - offset);
+        for (int i = 0; i < count; ++i)
+        {
+            const float sample = transitionInput[static_cast<std::size_t> (offset + i)];
+            analyzedInputBlock[static_cast<std::size_t> (i)] = sample;
+            transitionAnalyzer.processSample (sample);
+            const auto& features = transitionAnalyzer.getFeatures();
+            analyzedPitchBlock[static_cast<std::size_t> (i)] = features.pitchHz;
+            analyzedVoicedBlock[static_cast<std::size_t> (i)] = features.voiced;
+            analyzedAperiodicBlock[static_cast<std::size_t> (i)] = features.aperiodic;
+        }
+        analyzedTransitionPath.processBlock (analyzedInPointers.data(), analyzedOutPointers.data(), 1, count,
+                                             analyzedPitchBlock.data(), analyzedVoicedBlock.data(),
+                                             analyzedAperiodicBlock.data(), 100.0f,
+                                             fixedDelayTransform, &analyzedIdentityTransform,
+                                             65.0f, true, true);
+        std::copy_n (analyzedOutputBlock.data(), count,
+                     transitionOutput.data() + static_cast<std::size_t> (offset));
+    }
+    const auto rangeRms = [] (const std::vector<float>& values, int start, int end)
+    {
+        double energy = 0.0;
+        for (int i = start; i < end; ++i)
+            energy += static_cast<double> (values[static_cast<std::size_t> (i)])
+                    * values[static_cast<std::size_t> (i)];
+        return std::sqrt (energy / static_cast<double> (end - start));
+    };
+    const double onsetLevelRatio = rangeRms (transitionOutput, onsetStart + 480, onsetStart + 1248)
+                                 / rangeRms (transitionInput, onsetStart + 480, onsetStart + 1248);
+    const double fricativeLevelRatio = rangeRms (transitionOutput, fricativeStart + 720, fricativeStart + 1680)
+                                     / rangeRms (transitionInput, fricativeStart + 720, fricativeStart + 1680);
+    const double tailLevelRatio = rangeRms (transitionOutput, tailStart + 1200, tailStart + 2400)
+                                / rangeRms (transitionInput, tailStart + 1200, tailStart + 2400);
+    ok &= require (onsetLevelRatio > 0.90,
+                   "quiet vowel onset retains level while the analyzer fills its pitch window (ratio "
+                   + std::to_string (onsetLevelRatio) + ")");
+    ok &= require (fricativeLevelRatio > 0.60,
+                   "unvoiced frication survives the voiced-to-unvoiced boundary (ratio "
+                   + std::to_string (fricativeLevelRatio) + ")");
+    ok &= require (tailLevelRatio > 0.60,
+                   "a fading vowel tail remains audible as pitch confidence releases (ratio "
+                   + std::to_string (tailLevelRatio) + ")");
+
+    // Neutral processing should not create a gain dip at any Voice Mix setting.
+    for (int mixPercent = 0; mixPercent <= 100; mixPercent += 20)
+    {
+        LatencyAlignedRecombiner mixSweep;
+        const bool prepared = mixSweep.prepare (0, sampleRate);
+        mixSweep.setLatencySamples (0);
+        double mixError = 0.0;
+        for (int sample = 0; sample < 3000; ++sample)
+        {
+            const auto mixed = mixSweep.processSample (0.20f, 0.0f, 0.20f,
+                                                        static_cast<float> (mixPercent));
+            if (sample >= 1000)
+                mixError += static_cast<double> (mixed.output - 0.20f) * (mixed.output - 0.20f);
+        }
+        ok &= require (prepared && mixError < 1.0e-8,
+                       "Voice Mix " + std::to_string (mixPercent)
+                       + "% keeps neutral input level after smoothing settles");
+    }
 
     // A transient remains controlled independently from the breath path.
     HybridVoicePath transientPath;

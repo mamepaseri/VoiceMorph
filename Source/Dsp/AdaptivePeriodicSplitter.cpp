@@ -62,7 +62,8 @@ float AdaptivePeriodicSplitter::readFractionalDelay (float delaySamples) const n
 SplitSample AdaptivePeriodicSplitter::processSample (float input,
                                                       float pitchHz,
                                                       float voiceConfidence,
-                                                      bool preserveTransients) noexcept
+                                                      bool preserveTransients,
+                                                      float aperiodicProtection) noexcept
 {
     const float safeInput = std::isfinite (input) ? input : 0.0f;
     const bool validPitch = std::isfinite (pitchHz) && pitchHz >= minimumPitchHz && pitchHz <= maximumPitchHz;
@@ -116,11 +117,14 @@ SplitSample AdaptivePeriodicSplitter::processSample (float input,
         correlatedCrossEnergy = 0.0f;
     }
 
-    const float baseConfidence = validPitch && std::isfinite (voiceConfidence)
+    const float trackerConfidence = validPitch && std::isfinite (voiceConfidence)
         ? std::clamp (voiceConfidence, 0.0f, 1.0f) : 0.0f;
+    const float protection = std::clamp (std::isfinite (aperiodicProtection)
+        ? aperiodicProtection : 0.0f, 0.0f, 1.0f);
     const float correlationGate = std::clamp ((localPeriodicity - 0.18f) / 0.72f, 0.0f, 1.0f);
     const float transientGate = preserveTransients ? (1.0f - sampleTransient) : 1.0f;
-    const float confidence = baseConfidence * transientGate * correlationGate;
+    const float classificationConfidence = trackerConfidence * correlationGate;
+    const float confidence = trackerConfidence * (1.0f - protection) * transientGate * correlationGate;
     const float periodic = confidence * periodicEstimate;
     const float residual = safeInput - periodic;
 
@@ -128,5 +132,5 @@ SplitSample AdaptivePeriodicSplitter::processSample (float input,
     writeIndex = (writeIndex + 1) % delayBufferSize;
     samplesWritten = std::min (samplesWritten + 1, delayBufferSize);
 
-    return { periodic, residual, sampleTransient };
+    return { periodic, residual, sampleTransient, classificationConfidence };
 }

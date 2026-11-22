@@ -1,4 +1,10 @@
-# Build / validation status — 2026-11-19 — Prototype 0.8.0
+# Build / validation status — 2026-11-23 — Prototype 0.8.5
+
+## 0.8.5 candidate update — 2026-11-23
+
+- Fixed low-confidence residual routing in the hybrid voice path and added onset, frication, intermittent-F0, fading-tail, and Voice Mix sweep regressions. Stable v0.8.3 and published v0.8.4 beta release assets are unchanged.
+- These new C++ tests have not been compiled or run in this checkout: CMake and a C++ compiler are not installed in the available Windows environment. The Visual Studio files present here do not include the MSVC C++ toolset. The Windows VST3 candidate therefore remains unbuilt.
+- RoVee / GVST GForm remain architecture and sound references only. No same-source DAW render or Sonar/UAC-232 listening comparison was available in this session.
 
 ## Validated in this workspace
 

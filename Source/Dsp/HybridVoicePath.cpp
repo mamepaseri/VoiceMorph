@@ -106,17 +106,24 @@ bool HybridVoicePath::processBlock (const float* const* input,
             const float voiced = std::clamp (std::isfinite (voicedRaw) ? voicedRaw : 0.0f, 0.0f, 1.0f);
             const float aperiodic = std::clamp (std::isfinite (aperiodicRaw) ? aperiodicRaw : 0.0f, 0.0f, 1.0f);
             const float aperiodicProtection = preserveConsonants ? breathPreserve * aperiodic : 0.0f;
-            const float splitConfidence = voiced * (1.0f - aperiodicProtection);
-            const auto stems = splitters[index].processSample (input[ch][sample], f0, splitConfidence, preserveTransients);
+            const auto stems = splitters[index].processSample (input[ch][sample], f0, voiced,
+                                                                preserveTransients, aperiodicProtection);
             periodic[static_cast<std::size_t> (sample)] = stems.periodic;
 
-            // Only classified aperiodic detail and detected transients are sent
-            // around the pitch shifter. Breath Preserve controls the former;
-            // Transient Preserve controls the latter. This prevents voiced
-            // residual leakage from being added as an uncontrolled dry copy.
+            // Classified aperiodic detail and detected transients are sent
+            // around the pitch shifter. A separate confidence floor below
+            // protects material the tracker cannot reliably classify.
             const float breathResidualGain = preserveConsonants ? breathPreserve * aperiodic : 0.0f;
             const float transientResidualGain = preserveTransients ? stems.transient : 0.0f;
-            const float residualGain = std::clamp (std::max (breathResidualGain, transientResidualGain), 0.0f, 1.0f);
+            // Keep the residual when either the tracker or local periodicity
+            // check is unsure. The square curve fades this safety path only as
+            // classification confidence becomes strong, avoiding a gap while
+            // the pitch stem is entering or leaving the transform.
+            const float confidenceResidualGain = 1.0f
+                - stems.classificationConfidence * stems.classificationConfidence;
+            const float residualGain = std::clamp (
+                std::max (std::max (breathResidualGain, transientResidualGain), confidenceResidualGain),
+                0.0f, 1.0f);
             residual[static_cast<std::size_t> (sample)] = stems.residual * residualGain;
         }
     }

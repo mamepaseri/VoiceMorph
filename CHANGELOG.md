@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.8.5 candidate — 2026-11-23
+
+- Fixed voice-path dropouts at phrase onsets and voiced/unvoiced transitions. The hybrid path retains residual detail while either tracker confidence or local periodicity is uncertain.
+- Kept Breath, Consonant, and Transient Preserve controls independent from the low-confidence fallback.
+- Added deterministic regression cases for quiet onsets, stale pitch during frication, intermittent F0 loss, fading tails, unvoiced audio at 100% Voice Mix, and neutral level across the mix range.
+- Added Graillon FREE 3.2 documentation and UI/function concepts to the reference analysis. No paid version or binary was needed for this comparison.
+- Candidate validation is pending. Stable v0.8.3 and published v0.8.4 beta assets remain unchanged.
+
 ## 0.8.4 — 2026-11-23 — Experimental beta
 
 - Embedded Turbo Racers Regular in the plug-in so the dashboard lettering is consistent across systems and DAWs.

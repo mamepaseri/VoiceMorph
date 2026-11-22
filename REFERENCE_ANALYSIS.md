@@ -1,6 +1,6 @@
-# Supplied plug-in files: metadata-level analysis
+# Supplied plug-in files and documentation: reference analysis
 
-Scope: file format, architecture hints, embedded parameter names/help text and build metadata only. No disassembly, decompilation, code reuse, resource extraction, or copying of proprietary algorithms/assets was performed.
+Binary inspection is limited to file format, architecture hints, embedded parameter names/help text and build metadata. Product-guide claims are identified as documentation, not independent measurements. No disassembly, decompilation, code reuse, resource extraction, or copying of proprietary algorithms/assets was performed.
 
 ## RoVee.dll
 - PE32 / x86 32-bit VST2 binary; file timestamp in PE header: 2013-04-06.
@@ -14,6 +14,14 @@ Scope: file format, architecture hints, embedded parameter names/help text and b
 - Embedded UI string identifies it as `GVST GForm ~ Pitch/formant shifter`.
 - Visible control string found: `Pitch`; generic `mixDryWet` also appears.
 - Useful reference: simple, direct pitch/formant-shifter presentation, but no detailed exposed parameter set was confirmed from the strings alone.
+
+## Graillon FREE 3.2 (user-supplied archive)
+- The supplied archive includes the Graillon 3 User's Guide v3.2.0, a data sheet labeled v3.0, a cheat sheet, installers, and plug-in binaries. Only the documentation and image were inspected; no installer or plug-in binary was run.
+- The v3.2.0 guide documents separate pitch and formant controls, a formant-preservation option, Wet/Dry mix, and an Amount control. It describes Dry as delayed to align with the Wet path. The guide also describes multiple pitch engines and correction controls.
+- The included v3.0 data sheet reports vendor latency figures of 24.4 ms at 44.1 kHz and 22.4 ms at 96/192 kHz. These are historical vendor claims for the sheet's version, not a measurement of v3.2 or VoiceMorph.
+- Auburn Sounds lists pitch shift, formant shift, and pitch correction in Graillon Free; Graillon Full adds PTM, microtonal keyboard tuning, and a vocal doubler. The Free version is therefore sufficient as a core pitch/formant and Wet/Dry reference. Full is only relevant if VoiceMorph later targets those additional features. Sources: [official Graillon product page](https://www.auburnsounds.com/products/Graillon.html) and [v3.2.0 User's Guide](https://www.auburnsounds.com/downloads/Graillon%203%20User%27s%20Guide.pdf).
+- Useful UI/function concepts to consider: a pitch-engine/quality choice only when it maps to genuinely distinct DSP paths; live pitch feedback; clearly grouped Pitch, Formant, Tracking/Correction, Preservation, and Output controls; and a time-aligned Wet/Dry blend. VoiceMorph already has separate pitch/formant and Voice Mix controls, a pitch monitor, Voice Mode, Pitch Dynamics, preservation controls, and input/output gain. Keyboard-scale correction and a vocal doubler are outside the current voice-conversion goal.
+- The guide does not disclose the engine's internal voicing-confidence, residual, or low-confidence fallback routing. It is not evidence that Graillon uses the same dropout cause or fix as VoiceMorph.
 
 ## THE_PITCH 2 MINI.vst3
 - PE32+ / x64 VST3, JUCE 9 strings found.
@@ -78,6 +86,8 @@ VoiceMorph's parameter system is based on three independent groups:
 3. **Sibilance cleanup:** De-Esser Frequency Range, Intensity, Mix, Attack, Release.
 
 Input/Output gain is a separate utility strip on the left. The waveform monitor shows the input and output traces. The main Pitch/Formant algorithm remains a separate implementation task; no parameter-string inspection can recover or validate a vendor's DSP algorithm.
+
+Graillon's documented layout is a useful reference for clearer pitch/formant and output grouping, live pitch feedback, and wet/dry alignment. Any VoiceMorph UI change should expose a real processing choice and keep preservation controls distinct from the overall Voice Mix; this reference alone does not justify adding pitch correction, key/scale selection, or a doubler.
 
 ## Open-source engine candidates (researched 2026-11-19)
 

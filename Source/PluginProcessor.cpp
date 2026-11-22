@@ -226,8 +226,8 @@ void VoiceMorphAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             // Keep the UI's split meters backed by the same live analyzer.
             const float aperiodicProtection = consonantPreserve
                 ? breathPreserve * 0.01f * speech.aperiodic : 0.0f;
-            const float splitConfidence = speech.voiced * (1.0f - aperiodicProtection);
-            const auto split = periodicSplitter.processSample (monoInput, speech.pitchHz, splitConfidence, transientPreserve);
+            const auto split = periodicSplitter.processSample (monoInput, speech.pitchHz, speech.voiced,
+                                                               transientPreserve, aperiodicProtection);
             periodicEnergyAccumulator += split.periodic * split.periodic;
             residualEnergyAccumulator += split.residual * split.residual;
             ++splitSamplesInFrame;
