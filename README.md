@@ -1,16 +1,23 @@
-# VoiceMorph — Windows x64 VST3 experimental beta 0.8.5
+# VoiceMorph — Windows x64 VST3 experimental beta 0.8.8
 
 VoiceMorph is an experimental Windows x64 VST3 voice-transformation plug-in. It uses pitch/formant processing and a hybrid periodic/residual signal path. This is an early prototype: transformed speech can still sound robotic or warbly.
 
 ## Download and install
 
-Get the latest Windows x64 installer from [GitHub Releases](https://github.com/mamepaseri/VoiceMorph/releases/latest). Download the direct [Windows x64 installer EXE](https://github.com/mamepaseri/VoiceMorph/releases/download/v0.8.5/VoiceMorph-Setup-x64-0.8.5.exe), or the [ZIP copy](https://github.com/mamepaseri/VoiceMorph/releases/download/v0.8.5/VoiceMorph-Setup-x64-0.8.5.zip). The installer offers per-user installation by default and can also install for all users. Close your DAW before installing or uninstalling, then rescan its VST3 plug-ins.
+Get the latest Windows x64 installer from [GitHub Releases](https://github.com/mamepaseri/VoiceMorph/releases/latest). Download the direct [Windows x64 installer EXE](https://github.com/mamepaseri/VoiceMorph/releases/download/v0.8.8/VoiceMorph-Setup-x64-0.8.8.exe), or the [ZIP copy](https://github.com/mamepaseri/VoiceMorph/releases/download/v0.8.8/VoiceMorph-Setup-x64-0.8.8.zip). The installer offers per-user installation by default and can also install for all users. Close your DAW before installing or uninstalling, then rescan its VST3 plug-ins.
 
 The installer is unsigned, so Windows SmartScreen may show an unfamiliar-app warning. It installs the built `VoiceMorph.vst3` bundle and includes an uninstaller.
 
 ## Automatic Windows releases
 
 After the Windows x64 VST3 build (Signalsmith ON and OFF) and DSP test suite both pass on `main`, the packaging workflow takes the Signalsmith ON artifact, validates and smoke-tests the installer, then publishes the direct installer EXE, a ZIP copy, and SHA-256 checksums to GitHub Releases. The release version comes from `project(VERSION ...)` in `CMakeLists.txt`; `RELEASE_CHANNEL` selects `alpha`, `beta`, or `stable`. Alpha and beta releases appear as GitHub pre-releases and include the same downloadable Windows installer EXE. Use a new version number for every release, including when promoting a pre-release to stable: published versions and tags are never reused or repurposed. Repeated builds of an already published version do not create duplicate releases. A package-only or manual Actions run cannot publish unless it refers to a successful main-branch Windows VST3 build and the same commit has passing DSP tests.
+
+## 0.8.8 changes
+
+- Refined the automotive dashboard finish with brighter chrome-style rotary rings, layered specular highlights, brushed-metal panel shading, and machined button/fader caps.
+- Matched dark mode to the graphite-and-cyan dashboard preview. Light mode keeps a white LCD with dark text and satin aluminum controls.
+- Kept the embedded Turbo Racers Regular typeface and removed JUCE's extra synthetic bold style so labels read slightly lighter.
+- This is a visual update; it does not change the pitch engine or establish natural voice quality.
 
 ## 0.8.5 changes
 

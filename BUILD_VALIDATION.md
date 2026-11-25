@@ -1,4 +1,14 @@
-# Build / validation status — 2026-11-23 — 0.8.5 Beta
+# Build / validation status — 2026-11-25 — Prototype 0.8.8
+
+## 0.8.8 visual candidate
+
+- Updated the dashboard materials, graphite/cyan palette, and Turbo Racers text weight. No audio-processing behavior changed.
+- The supplied Turbo Racers archive contains only the Regular TTF. The UI keeps that face and removes additional synthetic bolding rather than replacing it with a different family.
+- [Windows x64 VST3 CI](https://github.com/mamepaseri/VoiceMorph/actions/runs/45605746681) passed with Signalsmith ON and OFF; both artifacts were uploaded. [DSP CI](https://github.com/mamepaseri/VoiceMorph/actions/runs/45605746768) passed strict-warning, sanitizer, and Signalsmith-enabled synthetic quality checks.
+- The feature branch does not package installers. After the main commit passes both workflows, the release workflow will build the installer and run install/uninstall smoke checks.
+- CI confirms compilation, not GUI rendering in a DAW. No Sonar playback or voice-quality claim is included.
+
+## Earlier validation
 
 ## 0.8.5 release-candidate validation
 
