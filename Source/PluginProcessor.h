@@ -51,7 +51,6 @@ public:
 private:
     static APVTS::ParameterLayout createParameterLayout();
     static float readParam (const APVTS& state, const char* id, float fallback) noexcept;
-    void updateDetectorBand (int rangeIndex) noexcept;
     void publishSpeechFeatures() noexcept;
 
     std::array<std::atomic<float>, waveformSize> inputWaveform {};
@@ -87,14 +86,6 @@ private:
     std::atomic<float> publishedPeriodicRms { 0.0f };
     std::atomic<float> publishedResidualRms { 0.0f };
 
-    // Lightweight one-pole detector band-pass state. No allocations in processBlock().
-    std::array<float, 2> hpPreviousInput {};
-    std::array<float, 2> hpPreviousOutput {};
-    std::array<float, 2> lpPreviousOutput {};
-    std::array<float, 2> detectorEnvelope {};
-    float hpCoefficient = 0.0f;
-    float lpCoefficient = 0.0f;
-    int activeDetectorRange = -1;
     double currentSampleRate = 44100.0;
 
     juce::ValueTree slotA;
@@ -103,4 +94,5 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VoiceMorphAudioProcessor)
 };
+
 
