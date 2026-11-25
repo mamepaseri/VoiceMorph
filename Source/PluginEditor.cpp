@@ -10,17 +10,17 @@ namespace
     };
 
     const UiPalette darkPalette {
-        // Graphite dashboard surfaces with cool chrome highlights and the cyan display accent.
+        // Graphite dashboard surfaces with cool chrome highlights and a warm orange accent.
         juce::Colour (0xff171c22), juce::Colour (0xff252c32), juce::Colour (0xff3c454c),
         juce::Colour (0xff879399), juce::Colour (0xffeef2f4), juce::Colour (0xffaab4b9),
-        juce::Colour (0xff39dbe4), juce::Colour (0xff176d76), juce::Colour (0xff0b1116),
+        juce::Colour (0xffff9828), juce::Colour (0xff794411), juce::Colour (0xff0b1116),
         juce::Colour (0xff344148)
     };
     const UiPalette lightPalette {
         // Light mode uses satin aluminum and a white LCD with dark lettering.
         juce::Colour (0xffd0d6d9), juce::Colour (0xffe3e7e9), juce::Colour (0xfff5f7f8),
         juce::Colour (0xff8e999e), juce::Colour (0xff121719), juce::Colour (0xff4e595e),
-        juce::Colour (0xff20c5d1), juce::Colour (0xff14727b), juce::Colour (0xffffffff),
+        juce::Colour (0xffe98219), juce::Colour (0xff96510e), juce::Colour (0xffffffff),
         juce::Colour (0xffd4dde0)
     };
 
@@ -595,7 +595,7 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     setOpaque (true);
     setResizable (true, true);
     setResizeLimits (980, 640, 1600, 1060);
-    setSize (1220, 810);
+    setSize (1100, 730);
 
     titleLabel.setText ("VOICEMORPH", juce::dontSendNotification);
     titleLabel.setFont (lookAndFeel.themedFont (21.0f, juce::Font::plain));

@@ -1,6 +1,16 @@
-# Build / validation status — 2026-11-25 — Prototype 0.9.0
+# Build / validation status — 2026-11-26 — Prototype 0.9.1
 
-## 0.9.0 release-candidate validation
+## 0.9.1 release-candidate validation
+
+- Candidate commit `acccdf4ba4b614108e64f983da84c8924f33bde0` passed [Linux DSP CI](https://github.com/mamepaseri/VoiceMorph/actions/runs/45654845868), including strict warnings, ASan/UBSan, and Signalsmith-enabled synthetic quality tests.
+- The same candidate passed [Windows x64 VST3 CI](https://github.com/mamepaseri/VoiceMorph/actions/runs/45654845928) with Signalsmith ON and OFF; both artifacts were uploaded.
+- It restores the orange accent and sets the default editor to 1100 × 730 while keeping the existing resize range. No DSP behavior changed.
+- The checks confirm compilation, not GUI appearance in Cakewalk Sonar. No Sonar visual/runtime validation is claimed.
+- The main-branch commit will run these checks again before the installer workflow creates 0.9.1.
+
+## 0.9.0 validation record
+
+
 
 - Candidate commit `66af72965ac306cf426ea1e555f03ee36bc2db73` passed [Linux DSP CI](https://github.com/mamepaseri/VoiceMorph/actions/runs/45607489184), including strict warnings, ASan/UBSan, and Signalsmith-enabled synthetic quality checks.
 - The same candidate passed [Windows x64 VST3 CI](https://github.com/mamepaseri/VoiceMorph/actions/runs/45607489381) with Signalsmith ON and OFF; both artifacts were uploaded.
