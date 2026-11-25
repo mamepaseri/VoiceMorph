@@ -1,5 +1,8 @@
 #pragma once
 #include <JuceHeader.h>
+#ifndef VOICEMORPH_USE_CUSTOM_UI_FONT
+ #define VOICEMORPH_USE_CUSTOM_UI_FONT 0
+#endif
 #include "PluginProcessor.h"
 
 class VoiceMorphLookAndFeel final : public juce::LookAndFeel_V4
@@ -17,7 +20,9 @@ public:
                                bool, bool) override;
     void drawToggleButton (juce::Graphics&, juce::ToggleButton&, bool, bool) override;
 private:
+#if VOICEMORPH_USE_CUSTOM_UI_FONT
     juce::Typeface::Ptr turboTypeface;
+#endif
     bool lightTheme = false;
 };
 
@@ -56,27 +61,27 @@ private:
     VoiceMorphLookAndFeel lookAndFeel;
 
     juce::Label titleLabel, statusLabel, presetLabel;
-    juce::ComboBox presetBox, deEssRangeBox, qualityBox;
+    juce::ComboBox presetBox, qualityBox;
     juce::TextButton prevPresetButton { "<" }, nextPresetButton { ">" }, aButton { "A" }, bButton { "B" },
                     advancedButton { "ADVANCED" }, darkThemeButton { "DARK" }, lightThemeButton { "LIGHT" };
-    juce::ToggleButton bypassButton { "BYPASS" }, consonantButton { "CONSONANT PRESERVE" }, transientButton { "TRANSIENT PRESERVE" }, deEssBypassButton { "DE-ESSER OFF" };
+    juce::ToggleButton bypassButton { "BYPASS" }, consonantButton { "CONSONANT PRESERVE" }, transientButton { "TRANSIENT PRESERVE" };
     juce::Slider inputGainSlider, outputGainSlider, voiceMixSlider, pitchSlider, formantSlider,
-                 trackingSlider, pitchDynamicsSlider, breathSlider, deEssIntensitySlider, deEssMixSlider;
+                 trackingSlider, pitchDynamicsSlider, breathSlider;
     juce::TextButton naturalModeButton { "NATURAL" }, balancedModeButton { "BALANCED" }, preciseModeButton { "PRECISE" };
     std::unique_ptr<juce::DocumentWindow> advancedWindow;
     juce::Label inputLabel, outputLabel, pitchLabel, formantLabel, trackingLabel, pitchDynamicsLabel, breathLabel,
-               mixLabel, voiceModeLabel, deEssLabel, deEssMixLabel, deEssRangeLabel, qualityLabel;
+               mixLabel, voiceModeLabel, qualityLabel;
     PitchContourMonitor pitchMonitor;
 
     using SliderAttachment = VoiceMorphAudioProcessor::APVTS::SliderAttachment;
     using ButtonAttachment = VoiceMorphAudioProcessor::APVTS::ButtonAttachment;
     using ComboAttachment = VoiceMorphAudioProcessor::APVTS::ComboBoxAttachment;
     std::unique_ptr<SliderAttachment> inputAttachment, outputAttachment, voiceMixAttachment,
-        pitchAttachment, formantAttachment, trackingAttachment, pitchDynamicsAttachment, breathAttachment,
-        deEssIntensityAttachment, deEssMixAttachment;
-    std::unique_ptr<ButtonAttachment> bypassAttachment, consonantAttachment, transientAttachment, deEssBypassAttachment;
-    std::unique_ptr<ComboAttachment> deEssRangeAttachment, qualityAttachment;
+        pitchAttachment, formantAttachment, trackingAttachment, pitchDynamicsAttachment, breathAttachment;
+    std::unique_ptr<ButtonAttachment> bypassAttachment, consonantAttachment, transientAttachment;
+    std::unique_ptr<ComboAttachment> qualityAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (VoiceMorphAudioProcessorEditor)
 };
+
 
