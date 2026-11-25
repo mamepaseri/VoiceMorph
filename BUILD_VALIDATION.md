@@ -1,4 +1,13 @@
-# Build / validation status — 2026-11-25 — Prototype 0.9.0
+# Build / validation status — 2026-11-26 — Prototype 0.9.2
+
+## 0.9.2 focused voice-path candidate
+
+- The candidate keeps the published 0.8.8 DSP source as its base. The 0.9.0 tag changes only release documentation and the project version; the 0.8.7 UI-isolation candidate tree has the same `Source/Dsp` files as 0.8.8.
+- The only DSP implementation change is in `HybridVoicePath`: uncertain, weakly classified voiced residue now follows the pitch/formant transform, while positively identified breath, consonants, and transients retain their bypass path.
+- Windows x64 `speech_feature_test` passes with Signalsmith disabled and enabled (CTest 1/1 in both configurations). The 118 Hz low-confidence regression routes 0.962 of the input RMS into the transform at 100% Voice Mix. Tests also cover the Voice Mix sweep from 0% to 100%, unvoiced/fricative transitions, quiet onsets, fading tails, and unstable F0.
+- The Signalsmith-enabled suite passes its deterministic +7-semitone pitch-shift check. This is a synthetic DSP check, not a natural-speech quality measurement.
+- The Windows x64 Release VST3 target builds with Signalsmith enabled using MSVC 19.44 / CMake 3.31. The candidate bundle is produced successfully.
+- Cakewalk Sonar and Ableton Live playback, GUI behavior, and subjective voice quality have not been tested in this run.
 
 ## 0.9.0 release-candidate validation
 
