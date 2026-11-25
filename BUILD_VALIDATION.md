@@ -1,4 +1,12 @@
-# Build / validation status — 2026-11-25 — Prototype 0.8.8
+# Build / validation status — 2026-11-25 — Prototype 0.9.0
+
+## 0.9.0 candidate
+
+- Based on the published 0.8.8 source and visual update; no additional DSP changes are included.
+- The candidate version bump and release notes are being validated before publishing the 0.9.0 installer.
+- Natural voice quality and playback in Cakewalk Sonar / Zoom UAC-232 are not claimed.
+
+## 0.8.8 validation record
 
 ## 0.8.8 visual candidate
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.0 — 2026-11-25 — Experimental beta
+
+- Carries forward the 0.8.8 metallic dashboard redesign as the 0.9.0 visual baseline.
+- Keeps the graphite/cyan dark palette, pale aluminum light palette, multi-band chrome reflections, and slightly lighter Turbo Racers Regular rendering.
+- No DSP, pitch/formant, or residual-routing behavior changed from 0.8.8.
+- This remains an experimental beta. No natural voice quality or Sonar validation is claimed.
+
 ## 0.8.8 — 2026-11-25 — Experimental beta
 
 - Increased the metallic character of the dashboard with multi-band chrome/aluminum rotary bezels, specular edge highlights, satin panel surfaces, and reflective slider/button caps.
