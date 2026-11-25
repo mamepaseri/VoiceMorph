@@ -1,0 +1,4 @@
+89003f4831669bb9aaa20f5a8a387cd6f668efdb3bc06a4656b487bc080cfbd0  VoiceMorph-0.8.4-candidate-Windows-x64-VST3.zip
+f57cdf29a577569897b4b7505b52dcb50d0473a55e0bd34b95074f996fbcee16  VoiceMorph-0.8.6-candidate-Windows-x64-VST3.zip
+9a00f2154216a3e996a501ebc52445bccf5e601689fc4f7b121566c96d5a2f62  VoiceMorph-0.8.7-UI-isolation-Windows-x64-VST3.zip
+36e5799758e12d289db01179d0f7bfe6740dc6f2760b6fc6a1215c8893d2575e  VoiceMorph-0.8.8-Live12-latency-stability-Windows-x64-VST3.zip
