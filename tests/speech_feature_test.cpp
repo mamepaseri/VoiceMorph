@@ -198,7 +198,192 @@ namespace
         return result;
     }
 
+    struct HybridVoiceToneRun
+    {
+        bool prepared = false;
+        bool everyTransformSucceeded = true;
+        float measuredPitchHz = 0.0f;
+        float outputRms = 0.0f;
+        float analyzedPitchHz = 0.0f;
+    };
 
+    HybridVoiceToneRun renderHybridVoiceTone (bool useAnalyzer)
+    {
+        HybridVoiceToneRun result;
+        constexpr int blockSize = 480; // Match the processor's 10 ms control hops.
+        const int totalSamples = static_cast<int> (sampleRate * 1.2);
+        SignalsmithHybridVoiceEngine engine;
+        SpeechFeatureAnalyzer analyzer;
+        analyzer.prepare (sampleRate);
+        analyzer.setTracking (70.0f);
+        result.prepared = engine.prepare (1, sampleRate, blockSize)
+                       && engine.isTransformAvailable();
+        if (! result.prepared)
+            return result;
+
+        engine.setParameters (7.0f, 0.0f, 132.0f);
+        std::vector<float> input (static_cast<std::size_t> (blockSize), 0.0f);
+        std::vector<float> output (static_cast<std::size_t> (blockSize), 0.0f);
+        std::vector<float> pitch (static_cast<std::size_t> (blockSize), 132.0f);
+        std::vector<float> voiced (static_cast<std::size_t> (blockSize), 1.0f);
+        std::vector<float> aperiodic (static_cast<std::size_t> (blockSize), 0.0f);
+        std::array<const float*, 1> inputPointers { input.data() };
+        std::array<float*, 1> outputPointers { output.data() };
+        std::vector<float> rendered (static_cast<std::size_t> (totalSamples), 0.0f);
+        std::vector<float> analyzedPitches;
+
+        for (int offset = 0; offset < totalSamples; offset += blockSize)
+        {
+            for (int i = 0; i < blockSize; ++i)
+            {
+                const int absolute = offset + i;
+                const double time = static_cast<double> (absolute) / sampleRate;
+                input[static_cast<std::size_t> (i)] = static_cast<float> (
+                    0.22 * std::sin (2.0 * pi * 132.0 * time)
+                    + 0.08 * std::sin (2.0 * pi * 264.0 * time)
+                    + 0.03 * std::sin (2.0 * pi * 396.0 * time));
+                if (useAnalyzer)
+                {
+                    analyzer.processSample (input[static_cast<std::size_t> (i)]);
+                    const auto& features = analyzer.getFeatures();
+                    pitch[static_cast<std::size_t> (i)] = features.pitchHz;
+                    voiced[static_cast<std::size_t> (i)] = features.voiced;
+                    aperiodic[static_cast<std::size_t> (i)] = features.aperiodic;
+                    if (features.pitchHz >= 65.0f && features.pitchHz <= 450.0f
+                        && features.voiced >= 0.25f)
+                        analyzedPitches.push_back (features.pitchHz);
+                }
+            }
+
+            if (! engine.processBlock (inputPointers.data(), outputPointers.data(), 1, blockSize,
+                                       pitch.data(), voiced.data(), aperiodic.data(), 100.0f,
+                                       false, useAnalyzer ? 65.0f : 0.0f,
+                                       useAnalyzer, useAnalyzer)
+                || ! engine.wasLastTransformSuccessful())
+            {
+                result.everyTransformSucceeded = false;
+                break;
+            }
+            std::copy_n (output.data(), blockSize, rendered.data() + offset);
+        }
+
+        if (! result.everyTransformSucceeded)
+            return result;
+
+        constexpr int measureStart = static_cast<int> (sampleRate * 0.25);
+        constexpr int measureEnd = static_cast<int> (sampleRate * 1.05);
+        int crossings = 0;
+        double energy = 0.0;
+        float previous = rendered[static_cast<std::size_t> (measureStart - 1)];
+        for (int n = measureStart; n < measureEnd; ++n)
+        {
+            const float current = rendered[static_cast<std::size_t> (n)];
+            if (previous <= 0.0f && current > 0.0f)
+                ++crossings;
+            energy += static_cast<double> (current) * current;
+            previous = current;
+        }
+        const float duration = static_cast<float> (measureEnd - measureStart) / static_cast<float> (sampleRate);
+        result.measuredPitchHz = static_cast<float> (crossings) / duration;
+        result.outputRms = static_cast<float> (std::sqrt (energy / static_cast<double> (measureEnd - measureStart)));
+        if (! analyzedPitches.empty())
+        {
+            std::sort (analyzedPitches.begin(), analyzedPitches.end());
+            result.analyzedPitchHz = analyzedPitches[analyzedPitches.size() / 2];
+        }
+        return result;
+    }
+
+    struct LiveBlockStressResult
+    {
+        bool prepared = false;
+        bool processed = false;
+        bool finite = true;
+        int successfulBlocks = 0;
+    };
+
+    LiveBlockStressResult runLiveBlockStress()
+    {
+        LiveBlockStressResult result;
+        constexpr int hostBlockSize = 2048;
+        constexpr int controlHopSize = 480; // 10 ms at 48 kHz, matching the processor.
+        constexpr int hostBlocks = 3072;     // More than two minutes of continuous audio.
+
+        SignalsmithHybridVoiceEngine engine;
+        result.prepared = engine.prepare (2, sampleRate, hostBlockSize);
+        if (! result.prepared || ! engine.isTransformAvailable())
+            return result;
+
+        std::array<std::array<float, hostBlockSize>, 2> audio {};
+        std::array<const float*, 2> inputPointers { audio[0].data(), audio[1].data() };
+        std::array<float*, 2> outputPointers { audio[0].data(), audio[1].data() };
+        std::array<float, controlHopSize> pitch {};
+        std::array<float, controlHopSize> voiced {};
+        std::array<float, controlHopSize> aperiodic {};
+        std::int64_t absoluteSample = 0;
+
+        for (int block = 0; block < hostBlocks; ++block)
+        {
+            if (block > 0 && (block % 1024) == 0)
+            {
+                // Device reconfiguration in a DAW may prepare the same processor
+                // repeatedly without replacing the plug-in instance.
+                engine.reset();
+                if (! engine.prepare (2, sampleRate, hostBlockSize))
+                    return result;
+            }
+
+            for (int i = 0; i < hostBlockSize; ++i)
+            {
+                const double t = static_cast<double> (absoluteSample + i) / sampleRate;
+                const float voice = static_cast<float> (0.20 * std::sin (2.0 * pi * 132.0 * t)
+                                                      + 0.07 * std::sin (2.0 * pi * 264.0 * t)
+                                                      + 0.025 * std::sin (2.0 * pi * 396.0 * t));
+                const float breath = ((absoluteSample + i) % static_cast<std::int64_t> (sampleRate * 2.0)
+                                      < static_cast<std::int64_t> (sampleRate * 0.12))
+                    ? static_cast<float> (0.035 * std::sin (2.0 * pi * 5200.0 * t)) : 0.0f;
+                audio[0][static_cast<std::size_t> (i)] = voice + breath;
+                audio[1][static_cast<std::size_t> (i)] = voice * 0.91f + breath * 0.83f;
+            }
+
+            for (int offset = 0; offset < hostBlockSize; )
+            {
+                const int count = std::min (controlHopSize, hostBlockSize - offset);
+                const int controlRegion = static_cast<int> ((absoluteSample + offset) / controlHopSize) % 8;
+                const float pitchShift = (block / 64) % 2 == 0 ? 7.0f : -5.0f;
+                const float formantShift = (block / 96) % 2 == 0 ? 0.0f : 2.0f;
+                engine.setParameters (pitchShift, formantShift, 140.0f);
+
+                for (int i = 0; i < count; ++i)
+                {
+                    const auto index = static_cast<std::size_t> (i);
+                    // Include aperiodic/unvoiced stretches and short boundary
+                    // transitions as seen in speech, alongside stable vowels.
+                    const bool unvoiced = controlRegion == 0 || controlRegion == 7;
+                    pitch[index] = unvoiced ? 0.0f : 132.0f;
+                    voiced[index] = unvoiced ? 0.04f : 0.86f;
+                    aperiodic[index] = unvoiced ? 0.88f : 0.12f;
+                }
+
+                if (! engine.processBlock (inputPointers.data(), outputPointers.data(), 2, count,
+                                           pitch.data(), voiced.data(), aperiodic.data(), 100.0f,
+                                           false, 65.0f, true, true))
+                    return result;
+                ++result.successfulBlocks;
+                offset += count;
+            }
+
+            for (const auto& channel : audio)
+                result.finite &= std::all_of (channel.begin(), channel.end(),
+                    [] (float value) { return std::isfinite (value); });
+            if (! result.finite)
+                return result;
+            absoluteSample += hostBlockSize;
+        }
+
+        result.processed = true;
+        return result;
+    }
 #endif
 
 int main()
@@ -1132,6 +1317,30 @@ int main()
     ok &= require (deterministicOutput,
                    "Signalsmith output repeats deterministically for the same synthetic voice and settings");
 
+    const auto liveStress = runLiveBlockStress();
+    ok &= require (liveStress.prepared && liveStress.processed && liveStress.finite
+                   && liveStress.successfulBlocks >= 15000,
+                   "Signalsmith survives stereo 2048-sample Live blocks split into 10 ms hops, parameter changes, speech transitions, and repeated prepare cycles");
+
+    const auto hybridTone = renderHybridVoiceTone (false);
+    const float expectedHybridPitch = 132.0f * std::exp2 (7.0f / 12.0f);
+    ok &= require (hybridTone.prepared && hybridTone.everyTransformSucceeded,
+                   "hybrid voice path reports successful Signalsmith transforms for every 10 ms block");
+    ok &= require (hybridTone.outputRms > 0.05f,
+                   "hybrid voice path retains audible level at 100% Voice Mix");
+    ok &= require (std::abs (hybridTone.measuredPitchHz - expectedHybridPitch) < 8.0f,
+                   "100% Voice Mix preserves the +7 semitone shift through splitting and recombination (measured "
+                       + std::to_string (hybridTone.measuredPitchHz) + " Hz)");
+
+    const auto analyzedHybridTone = renderHybridVoiceTone (true);
+    ok &= require (analyzedHybridTone.prepared && analyzedHybridTone.everyTransformSucceeded
+                   && analyzedHybridTone.analyzedPitchHz > 122.0f && analyzedHybridTone.analyzedPitchHz < 142.0f,
+                   "live pitch tracker supplies the expected 132 Hz voice to the hybrid transform (median "
+                       + std::to_string (analyzedHybridTone.analyzedPitchHz) + " Hz)");
+    ok &= require (analyzedHybridTone.outputRms > 0.05f
+                   && std::abs (analyzedHybridTone.measuredPitchHz - expectedHybridPitch) < 12.0f,
+                   "live analyzer, transform, and 100% Voice Mix produce the requested +7 semitone voice (measured "
+                       + std::to_string (analyzedHybridTone.measuredPitchHz) + " Hz)");
 
     if (finiteOutput)
     {
@@ -1337,4 +1546,5 @@ int main()
 
     return ok ? 0 : 1;
 }
+
 
