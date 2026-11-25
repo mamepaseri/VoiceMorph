@@ -121,3 +121,45 @@ target_link_libraries(VoiceMorph PRIVATE
     juce::juce_recommended_lto_flags
     juce::juce_recommended_warning_flags)
 
+option(VOICEMORPH_BUILD_LIFECYCLE_PROBE "Build a processor/editor lifecycle smoke probe" OFF)
+if (VOICEMORPH_BUILD_LIFECYCLE_PROBE)
+    juce_add_console_app(VoiceMorphLifecycleProbe
+        PRODUCT_NAME "VoiceMorph Lifecycle Probe")
+    juce_generate_juce_header(VoiceMorphLifecycleProbe)
+    target_sources(VoiceMorphLifecycleProbe PRIVATE
+        tests/processor_lifecycle_probe.cpp
+        Source/PluginProcessor.cpp
+        Source/PluginEditor.cpp
+        Source/Dsp/SpeechFeatureAnalyzer.cpp
+        Source/Dsp/PitchContourMapper.cpp
+        Source/Dsp/AdaptivePeriodicSplitter.cpp
+        Source/Dsp/LatencyAlignedRecombiner.cpp
+        Source/Dsp/HybridVoicePath.cpp
+        Source/Dsp/SignalsmithHybridVoiceEngine.cpp
+        Source/Dsp/SignalsmithPitchEngine.cpp)
+    target_include_directories(VoiceMorphLifecycleProbe PRIVATE Source)
+    target_compile_features(VoiceMorphLifecycleProbe PRIVATE cxx_std_17)
+    target_compile_definitions(VoiceMorphLifecycleProbe PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0
+        JUCE_VST3_CAN_REPLACE_VST2=0
+        VOICEMORPH_HAS_WORLD=0)
+    target_link_libraries(VoiceMorphLifecycleProbe PRIVATE
+        VoiceMorphUiAssets
+        juce::juce_audio_utils
+        juce::juce_dsp
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_warning_flags)
+    if (VOICEMORPH_ENABLE_SIGNALSMITH)
+        target_link_libraries(VoiceMorphLifecycleProbe PRIVATE signalsmith-stretch)
+        target_compile_definitions(VoiceMorphLifecycleProbe PRIVATE VOICEMORPH_HAS_SIGNALSMITH=1)
+    else()
+        target_compile_definitions(VoiceMorphLifecycleProbe PRIVATE VOICEMORPH_HAS_SIGNALSMITH=0)
+    endif()
+    if (MSVC)
+        target_compile_options(VoiceMorphLifecycleProbe PRIVATE /W4 /permissive- /utf-8)
+    endif()
+    enable_testing()
+    add_test(NAME processor_lifecycle_probe COMMAND VoiceMorphLifecycleProbe)
+endif()
+

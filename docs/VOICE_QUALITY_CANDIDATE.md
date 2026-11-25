@@ -12,7 +12,9 @@ The Signalsmith adapter also applied pitch transposition without pitch-compensat
 - Turn on the Signalsmith compensation option so the pitch shift does not itself drag the formant envelope. The user-facing Formant value continues to control intentional envelope movement.
 - Seed the formant reference after six consistent, confident F0 frames; use a neutral reference before then.
 - Default Pitch Dynamics to neutral and cap the optional expansion at 1.25x.
-- Keep the 0.9.0 editor sources and GUI assets unchanged.
+- Notify the host only when the reported latency actually changes, and retain that report while the engine is released. This avoids unnecessary host restarts during Live's prepare/release cycles.
+- Destroy the Advanced window before destroying the editor controls it reparents. The Windows lifecycle probe opens the window, ticks the editor timer, and tears the editor down.
+- Keep the 0.9.0 GUI appearance and controls unchanged; adjust only the Advanced window's teardown order.
 
 ## Verification limits
 

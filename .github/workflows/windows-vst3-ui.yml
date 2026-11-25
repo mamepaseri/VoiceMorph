@@ -20,9 +20,17 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v4
       - name: Configure
-        run: cmake -S . -B build-${{ matrix.signalsmith }} -G "Visual Studio 17 2022" -A x64 -DVOICEMORPH_ENABLE_SIGNALSMITH=${{ matrix.signalsmith }} -DVOICEMORPH_ENABLE_WORLD=OFF
+        run: cmake -S . -B build-${{ matrix.signalsmith }} -G "Visual Studio 17 2022" -A x64 -DVOICEMORPH_ENABLE_SIGNALSMITH=${{ matrix.signalsmith }} -DVOICEMORPH_ENABLE_WORLD=OFF -DVOICEMORPH_BUILD_LIFECYCLE_PROBE=ON
       - name: Build VST3
-        run: cmake --build build-${{ matrix.signalsmith }} --config Release --target VoiceMorph_VST3 --parallel 2
+        run: cmake --build build-${{ matrix.signalsmith }} --config Release --target VoiceMorph_VST3 VoiceMorphLifecycleProbe --parallel 2
+      - name: Run processor/editor lifecycle probe
+        shell: pwsh
+        run: |
+          $probes = @(Get-ChildItem -Path "build-${{ matrix.signalsmith }}" -File -Recurse -Filter "VoiceMorphLifecycleProbe.exe")
+          if ($probes.Count -ne 1) { throw "Expected exactly one lifecycle probe executable, found $($probes.Count)." }
+          & $probes[0].FullName
+          if ($LASTEXITCODE -ne 0) { throw "Processor/editor lifecycle probe failed with exit code $LASTEXITCODE." }
+
       - name: Upload VST3 artifact
         uses: actions/upload-artifact@v4
         with:

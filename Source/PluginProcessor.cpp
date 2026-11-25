@@ -113,7 +113,9 @@ void VoiceMorphAudioProcessor::prepareToPlay (double sampleRate, int samplesPerB
                                                             hybridMaximumBlockSize);
     voiceEngineAvailable.store (hybridPrepared && hybridVoiceEngine.isTransformAvailable(),
                                 std::memory_order_relaxed);
-    setLatencySamples (hybridPrepared ? hybridVoiceEngine.getLatencySamples() : 0);
+    const int requestedLatencySamples = hybridPrepared ? hybridVoiceEngine.getLatencySamples() : 0;
+    if (getLatencySamples() != requestedLatencySamples)
+        setLatencySamples (requestedLatencySamples);
 
     const auto scratchSize = static_cast<std::size_t> (hybridMaximumBlockSize);
     framePitch.assign (scratchSize, 0.0f);
@@ -136,7 +138,6 @@ void VoiceMorphAudioProcessor::releaseResources()
 {
     hybridVoiceEngine.reset();
     voiceEngineAvailable.store (false, std::memory_order_relaxed);
-    setLatencySamples (0);
 }
 
 bool VoiceMorphAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const

@@ -700,6 +700,9 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
 VoiceMorphAudioProcessorEditor::~VoiceMorphAudioProcessorEditor()
 {
     stopTimer();
+    // The advanced window reparents editor-owned controls into its content panel.
+    // Destroy it while those referenced controls and labels are still alive.
+    advancedWindow.reset();
     setLookAndFeel (nullptr);
 }
 
