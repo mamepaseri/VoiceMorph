@@ -513,8 +513,8 @@ int main()
                    && fullBreathResidual.first < fullBreathResidual.second * 1.01,
                    "low-confidence fallback keeps full unvoiced energy with Breath Preserve at 100%");
 
-    // A normal 118 Hz vowel with weak tracker confidence must enter the transform,
-    // rather than returning as a second unshifted voice at 100% Voice Mix.
+    // A normal 118 Hz vowel with weak tracker confidence must still enter the
+    // transform rather than being attenuated outside the pitched path.
     HybridVoicePath lowConfidenceVoicePath;
     ok &= require (lowConfidenceVoicePath.prepare (1, sampleRate, 128, 0, 0),
                    "low-confidence speaking-register path prepares");
@@ -549,7 +549,7 @@ int main()
     const double lowVoiceTransformRatio = lowVoiceInputEnergy > 0.0
         ? std::sqrt (lowConfidenceCapture.periodicEnergy / lowVoiceInputEnergy) : 0.0;
     ok &= require (lowVoiceBlocksSucceeded && lowVoiceTransformRatio > 0.80,
-                   "low-confidence 118 Hz vowel is routed through the transform instead of left as dry residual (ratio "
+                   "low-confidence 118 Hz vowel remains in the transform path instead of being dropped (ratio "
                        + std::to_string (lowVoiceTransformRatio) + ")");
 
     // Reproduce stale pitch/voicing controls at a vowel-to-frication boundary.

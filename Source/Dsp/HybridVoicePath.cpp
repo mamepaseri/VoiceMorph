@@ -109,8 +109,8 @@ bool HybridVoicePath::processBlock (const float* const* input,
             const auto stems = splitters[index].processSample (input[ch][sample], f0, voiced,
                                                                 preserveTransients, aperiodicProtection);
             // Explicitly identified breath, consonants, and transients bypass the
-            // pitch path. Low-confidence pitched material stays in the transform
-            // so an uncertain vowel does not return as an unshifted dry voice.
+            // pitch path. Weakly classified vowel energy remains transform-bound
+            // instead of being attenuated or retained as an unshifted residual.
             const float breathResidualGain = preserveConsonants ? breathPreserve * aperiodic : 0.0f;
             const float transientResidualGain = preserveTransients ? stems.transient : 0.0f;
             const float confidenceSquared = stems.classificationConfidence
