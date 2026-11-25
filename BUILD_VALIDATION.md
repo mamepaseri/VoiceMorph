@@ -1,4 +1,14 @@
-# Build / validation status — 2026-11-25 — Prototype 0.8.8
+# Build / validation status — 2026-11-25 — Prototype 0.9.0
+
+## 0.9.0 release-candidate validation
+
+- Candidate commit `66af72965ac306cf426ea1e555f03ee36bc2db73` passed [Linux DSP CI](https://github.com/mamepaseri/VoiceMorph/actions/runs/45607489184), including strict warnings, ASan/UBSan, and Signalsmith-enabled synthetic quality checks.
+- The same candidate passed [Windows x64 VST3 CI](https://github.com/mamepaseri/VoiceMorph/actions/runs/45607489381) with Signalsmith ON and OFF; both artifacts were uploaded.
+- 0.9.0 carries forward the visual update already published as 0.8.8; no DSP or signal-routing behavior changed.
+- This validates compilation and synthetic tests, not GUI rendering in Cakewalk Sonar / Zoom UAC-232 or natural voice quality. Robotic or warbly artifacts may remain.
+- The main-branch commit will run the same checks before the installer workflow publishes 0.9.0.
+
+## 0.8.8 validation record
 
 ## 0.8.8 visual candidate
 

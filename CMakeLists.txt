@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-project(VoiceMorph VERSION 0.8.8 LANGUAGES C CXX)
+project(VoiceMorph VERSION 0.9.0 LANGUAGES C CXX)
 
 include(FetchContent)
 
