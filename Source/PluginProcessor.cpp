@@ -4,19 +4,6 @@
 
 namespace
 {
-    constexpr float minSafeFrequency = 20.0f;
-
-    std::pair<float, float> getDetectorRange (int index, double sampleRate)
-    {
-        const float nyquistSafe = static_cast<float> (sampleRate * 0.45);
-        switch (index)
-        {
-            case 0: return { 1000.0f, juce::jmin (4000.0f, nyquistSafe) };
-            case 1: return { 2000.0f, juce::jmin (4000.0f, nyquistSafe) };
-            case 2: return { 5000.0f, juce::jmin (10000.0f, nyquistSafe) };
-            default: return { 5000.0f, juce::jmin (20000.0f, nyquistSafe) };
-        }
-    }
 }
 
 VoiceMorphAudioProcessor::VoiceMorphAudioProcessor()
@@ -31,7 +18,6 @@ VoiceMorphAudioProcessor::VoiceMorphAudioProcessor()
     for (auto& sample : targetPitchContour) sample.store (0.0f);
     slotA = apvts.copyState();
     slotB = slotA.createCopy();
-    updateDetectorBand (0);
 }
 
 VoiceMorphAudioProcessor::APVTS::ParameterLayout VoiceMorphAudioProcessor::createParameterLayout()
@@ -69,20 +55,6 @@ VoiceMorphAudioProcessor::APVTS::ParameterLayout VoiceMorphAudioProcessor::creat
     layout.add (std::make_unique<Bool> (juce::ParameterID { "transientPreserve", 1 }, "Transient Preserve", true));
     layout.add (std::make_unique<Bool> (juce::ParameterID { "bypass", 1 }, "Bypass", false));
 
-    // De-esser controls adapted from the documented parameter concepts embedded in
-    // the supplied T-De-Esser 2 VST3 metadata (not its code or assets).
-    layout.add (std::make_unique<Choice> (juce::ParameterID { "deEssRange", 1 }, "De-Esser Frequency Range",
-        juce::StringArray { "Low-Hi 1-4 kHz", "Mid-Hi 2-4 kHz", "High 5-10 kHz", "Hi-End 5-20 kHz" }, 2));
-    layout.add (std::make_unique<Float> (juce::ParameterID { "deEssIntensity", 1 }, "De-Esser Intensity",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 25.0f));
-    layout.add (std::make_unique<Float> (juce::ParameterID { "deEssMix", 1 }, "De-Esser Mix",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f));
-    layout.add (std::make_unique<Float> (juce::ParameterID { "deEssAttack", 1 }, "De-Esser Attack",
-        juce::NormalisableRange<float> (0.5f, 20.0f, 0.1f), 3.0f));
-    layout.add (std::make_unique<Float> (juce::ParameterID { "deEssRelease", 1 }, "De-Esser Release",
-        juce::NormalisableRange<float> (5.0f, 250.0f, 1.0f), 90.0f));
-    layout.add (std::make_unique<Bool> (juce::ParameterID { "deEssBypass", 1 }, "De-Esser Bypass", false));
-
     return layout;
 }
 
@@ -96,12 +68,6 @@ float VoiceMorphAudioProcessor::readParam (const APVTS& state, const char* id, f
 void VoiceMorphAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     currentSampleRate = juce::jlimit (8000.0, 192000.0, sampleRate);
-    activeDetectorRange = -1;
-    updateDetectorBand (static_cast<int> (readParam (apvts, "deEssRange", 2.0f)));
-    hpPreviousInput.fill (0.0f);
-    hpPreviousOutput.fill (0.0f);
-    lpPreviousOutput.fill (0.0f);
-    detectorEnvelope.fill (0.0f);
     speechAnalyzer.prepare (currentSampleRate);
     pitchContourMapper.prepare (currentSampleRate);
     currentPitchDynamicsOffset = 0.0f;
@@ -148,18 +114,6 @@ bool VoiceMorphAudioProcessor::isBusesLayoutSupported (const BusesLayout& layout
     return in == juce::AudioChannelSet::mono() || in == juce::AudioChannelSet::stereo();
 }
 
-void VoiceMorphAudioProcessor::updateDetectorBand (int rangeIndex) noexcept
-{
-    if (rangeIndex == activeDetectorRange) return;
-    activeDetectorRange = rangeIndex;
-    const auto range = getDetectorRange (rangeIndex, currentSampleRate);
-    const float nyquistSafe = static_cast<float> (currentSampleRate * 0.45);
-    const float lowHz = juce::jlimit (minSafeFrequency, nyquistSafe - 50.0f, range.first);
-    const float highHz = juce::jlimit (lowHz + 50.0f, nyquistSafe, range.second);
-    hpCoefficient = std::exp (-2.0f * juce::MathConstants<float>::pi * lowHz / static_cast<float> (currentSampleRate));
-    lpCoefficient = std::exp (-2.0f * juce::MathConstants<float>::pi * highHz / static_cast<float> (currentSampleRate));
-}
-
 void VoiceMorphAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer&)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -178,21 +132,9 @@ void VoiceMorphAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     const float tracking = readParam (apvts, "tracking", 70.0f);
     const bool consonantPreserve = readParam (apvts, "consonantPreserve", 1.0f) > 0.5f;
     const bool transientPreserve = readParam (apvts, "transientPreserve", 1.0f) > 0.5f;
-    const float intensity = readParam (apvts, "deEssIntensity", 25.0f) * 0.01f;
-    const float wet = readParam (apvts, "deEssMix", 100.0f) * 0.01f;
-    const float attackMs = readParam (apvts, "deEssAttack", 3.0f);
-    const float releaseMs = readParam (apvts, "deEssRelease", 90.0f);
-    const bool deEssBypass = readParam (apvts, "deEssBypass", 0.0f) > 0.5f;
     const bool bypass = readParam (apvts, "bypass", 0.0f) > 0.5f;
-    const int rangeIndex = static_cast<int> (readParam (apvts, "deEssRange", 2.0f));
-    updateDetectorBand (rangeIndex);
     speechAnalyzer.setTracking (tracking);
     pitchContourMapper.setDynamicsPercent (pitchDynamics);
-
-    const float attackCoeff = std::exp (-1.0f / (static_cast<float> (currentSampleRate) * juce::jmax (0.0005f, attackMs * 0.001f)));
-    const float releaseCoeff = std::exp (-1.0f / (static_cast<float> (currentSampleRate) * juce::jmax (0.001f, releaseMs * 0.001f)));
-    const float thresholdDb = -38.0f + (1.0f - intensity) * 18.0f;
-    const float maxReductionDb = 12.0f * intensity;
 
     const int controlHopSamples = juce::jmax (1, static_cast<int> (std::lround (currentSampleRate * 0.010)));
 
@@ -268,9 +210,9 @@ void VoiceMorphAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
             hybridOutputPointers[static_cast<std::size_t> (ch)] = buffer.getWritePointer (ch, offset);
         }
 
-        // Formant base follows the smoothed live F0 estimate, with a stable neutral
-        // value during silence/unvoiced regions. The splitter itself still gates
-        // those regions out of the transformed periodic stem.
+        // Formant base follows the mapper's slowly tracked, confidence-seeded
+        // register. Do not let an ambiguous onset estimate move the formant
+        // reference; use a neutral base until six stable voiced frames exist.
         const float trackedPitch = pitchContourMapper.getBaselinePitchHz();
         const float formantBase = trackedPitch >= 65.0f && trackedPitch <= 450.0f ? trackedPitch : 140.0f;
         hybridVoiceEngine.setParameters (pitchSemitones + currentPitchDynamicsOffset,
@@ -293,27 +235,6 @@ void VoiceMorphAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
                 float processed = buffer.getSample (ch, offset + sample);
                 if (! bypass)
                 {
-                    if (! deEssBypass && intensity > 0.0001f)
-                    {
-                        const auto channelIndex = static_cast<std::size_t> (ch);
-                        const float hp = hpCoefficient * (hpPreviousOutput[channelIndex]
-                            + processed - hpPreviousInput[channelIndex]);
-                        hpPreviousInput[channelIndex] = processed;
-                        hpPreviousOutput[channelIndex] = hp;
-                        const float band = (1.0f - lpCoefficient) * hp
-                            + lpCoefficient * lpPreviousOutput[channelIndex];
-                        lpPreviousOutput[channelIndex] = band;
-
-                        const float detectorLevel = std::abs (band);
-                        float& envelope = detectorEnvelope[channelIndex];
-                        const float coeff = detectorLevel > envelope ? attackCoeff : releaseCoeff;
-                        envelope = coeff * envelope + (1.0f - coeff) * detectorLevel;
-                        const float envelopeDb = juce::Decibels::gainToDecibels (envelope, -120.0f);
-                        const float overThreshold = juce::jmax (0.0f, envelopeDb - thresholdDb);
-                        const float reductionDb = juce::jlimit (0.0f, maxReductionDb, overThreshold * 0.70f * intensity);
-                        const float reductionGain = juce::Decibels::decibelsToGain (-reductionDb);
-                        processed *= (1.0f + (reductionGain - 1.0f) * wet);
-                    }
                     processed *= outputGain;
                     buffer.setSample (ch, offset + sample, processed);
                 }
@@ -421,4 +342,5 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new VoiceMorphAudioProcessor();
 }
+
 
