@@ -52,7 +52,13 @@ int main()
             return 1;
         }
         processor.prepareToPlay (48000.0, 2048);
-        if (! processor.isVoiceEngineConnected() || processor.getLatencySamples() != reportedLatency)
+        const bool engineAvailabilityMatchesBuild =
+#if VOICEMORPH_HAS_SIGNALSMITH
+            processor.isVoiceEngineConnected();
+#else
+            ! processor.isVoiceEngineConnected();
+#endif
+        if (! engineAvailabilityMatchesBuild || processor.getLatencySamples() != reportedLatency)
         {
             std::cerr << "FAIL: engine or reported latency changed during prepare/release cycle\n";
             return 1;
