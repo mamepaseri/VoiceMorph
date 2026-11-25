@@ -1,0 +1,54 @@
+name: Publish preserved VST3 candidate packages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/publish-candidate-packages.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Download preserved candidate packages
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}
+          ref: voice-morph-candidate-packages-2026-11-25
+          path: candidate-packages
+          token: ${{ github.token }}
+          persist-credentials: false
+
+      - name: Verify candidate archive checksums
+        shell: bash
+        run: |
+          cd candidate-packages/packages
+          sha256sum --check SHA256SUMS.txt
+          for package in \
+            VoiceMorph-0.8.4-candidate-Windows-x64-VST3.zip \
+            VoiceMorph-0.8.6-candidate-Windows-x64-VST3.zip \
+            VoiceMorph-0.8.7-UI-isolation-Windows-x64-VST3.zip \
+            VoiceMorph-0.8.8-Live12-latency-stability-Windows-x64-VST3.zip; do
+            test -s "$package"
+          done
+
+      - name: Publish candidate archive collection
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create candidate-vst3-2026-11-25 \
+            candidate-packages/packages/VoiceMorph-0.8.4-candidate-Windows-x64-VST3.zip \
+            candidate-packages/packages/VoiceMorph-0.8.6-candidate-Windows-x64-VST3.zip \
+            candidate-packages/packages/VoiceMorph-0.8.7-UI-isolation-Windows-x64-VST3.zip \
+            candidate-packages/packages/VoiceMorph-0.8.8-Live12-latency-stability-Windows-x64-VST3.zip \
+            candidate-packages/packages/SHA256SUMS.txt \
+            --title "VoiceMorph VST3 candidate archives (0.8.4, 0.8.6, 0.8.7, 0.8.8)" \
+            --notes-file candidate-packages/packages/RELEASE_NOTES.md \
+            --prerelease \
+            --target "${{ github.sha }}"
