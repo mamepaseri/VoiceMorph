@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.2 — focused voice-path candidate
+
+- Uses the 0.8.7/0.8.8 DSP baseline and changes only how uncertain residual voice is routed.
+- Preserves positively identified breath, consonants, and transients while sending weakly classified vowel energy through the pitch/formant transform.
+- Automated checks are pending; this candidate is not a published release.
+
+
 ## 0.9.0 — 2026-11-25 — Experimental beta
 
 - Carries forward the 0.8.8 metallic dashboard redesign as the 0.9.0 visual baseline.
