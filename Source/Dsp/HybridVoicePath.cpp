@@ -108,21 +108,21 @@ bool HybridVoicePath::processBlock (const float* const* input,
             const float aperiodicProtection = preserveConsonants ? breathPreserve * aperiodic : 0.0f;
             const auto stems = splitters[index].processSample (input[ch][sample], f0, voiced,
                                                                 preserveTransients, aperiodicProtection);
-            periodic[static_cast<std::size_t> (sample)] = stems.periodic;
-
-            // Classified aperiodic detail and detected transients are sent
-            // around the pitch shifter. A separate confidence floor below
-            // protects material the tracker cannot reliably classify.
+            // Explicitly identified breath, consonants, and transients bypass the
+            // pitch path. Low-confidence pitched material stays in the transform
+            // so an uncertain vowel does not return as an unshifted dry voice.
             const float breathResidualGain = preserveConsonants ? breathPreserve * aperiodic : 0.0f;
             const float transientResidualGain = preserveTransients ? stems.transient : 0.0f;
-            // Keep the residual when either the tracker or local periodicity
-            // check is unsure. The square curve fades this safety path only as
-            // classification confidence becomes strong, avoiding a gap while
-            // the pitch stem is entering or leaving the transform.
-            const float confidenceSquared = stems.classificationConfidence * stems.classificationConfidence;
-            const float confidenceResidualGain = 1.0f - confidenceSquared * confidenceSquared;
+            const float confidenceSquared = stems.classificationConfidence
+                                          * stems.classificationConfidence;
+            const float confidenceFallback = 1.0f - confidenceSquared * confidenceSquared;
+            const float transientDetail = preserveTransients ? stems.transient : 0.0f;
+            const float transformFallback = std::clamp (
+                confidenceFallback * (1.0f - aperiodic) * (1.0f - transientDetail), 0.0f, 1.0f);
+            periodic[static_cast<std::size_t> (sample)] = stems.periodic
+                + stems.residual * transformFallback;
             const float residualGain = std::clamp (
-                std::max (std::max (breathResidualGain, transientResidualGain), confidenceResidualGain),
+                std::max (breathResidualGain, transientResidualGain) * (1.0f - transformFallback),
                 0.0f, 1.0f);
             residual[static_cast<std::size_t> (sample)] = stems.residual * residualGain;
         }
