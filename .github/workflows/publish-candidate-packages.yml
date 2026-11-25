@@ -28,7 +28,7 @@ jobs:
       - name: Verify candidate archive checksums
         shell: bash
         run: |
-          cd candidate-packages/packages
+          cd candidate-packages/candidate-packages/packages
           sha256sum --check SHA256SUMS.txt
           for package in \
             VoiceMorph-0.8.4-candidate-Windows-x64-VST3.zip \
@@ -43,12 +43,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create candidate-vst3-2026-11-25 \
-            candidate-packages/packages/VoiceMorph-0.8.4-candidate-Windows-x64-VST3.zip \
-            candidate-packages/packages/VoiceMorph-0.8.6-candidate-Windows-x64-VST3.zip \
-            candidate-packages/packages/VoiceMorph-0.8.7-UI-isolation-Windows-x64-VST3.zip \
-            candidate-packages/packages/VoiceMorph-0.8.8-Live12-latency-stability-Windows-x64-VST3.zip \
-            candidate-packages/packages/SHA256SUMS.txt \
+            candidate-packages/candidate-packages/packages/VoiceMorph-0.8.4-candidate-Windows-x64-VST3.zip \
+            candidate-packages/candidate-packages/packages/VoiceMorph-0.8.6-candidate-Windows-x64-VST3.zip \
+            candidate-packages/candidate-packages/packages/VoiceMorph-0.8.7-UI-isolation-Windows-x64-VST3.zip \
+            candidate-packages/candidate-packages/packages/VoiceMorph-0.8.8-Live12-latency-stability-Windows-x64-VST3.zip \
+            candidate-packages/candidate-packages/packages/SHA256SUMS.txt \
             --title "VoiceMorph VST3 candidate archives (0.8.4, 0.8.6, 0.8.7, 0.8.8)" \
-            --notes-file candidate-packages/packages/RELEASE_NOTES.md \
+            --notes-file candidate-packages/candidate-packages/packages/RELEASE_NOTES.md \
             --prerelease \
             --target "${{ github.sha }}"
