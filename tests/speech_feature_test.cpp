@@ -205,9 +205,11 @@ namespace
         float measuredPitchHz = 0.0f;
         float outputRms = 0.0f;
         float analyzedPitchHz = 0.0f;
+        float sourceLeakRatio = 1.0f;
     };
 
-    HybridVoiceToneRun renderHybridVoiceTone (bool useAnalyzer)
+    HybridVoiceToneRun renderHybridVoiceTone (bool useAnalyzer, float fundamentalHz = 132.0f,
+                                               float voicedConfidenceScale = 1.0f)
     {
         HybridVoiceToneRun result;
         constexpr int blockSize = 480; // Match the processor's 10 ms control hops.
@@ -221,10 +223,10 @@ namespace
         if (! result.prepared)
             return result;
 
-        engine.setParameters (7.0f, 0.0f, 132.0f);
+        engine.setParameters (7.0f, 0.0f, fundamentalHz);
         std::vector<float> input (static_cast<std::size_t> (blockSize), 0.0f);
         std::vector<float> output (static_cast<std::size_t> (blockSize), 0.0f);
-        std::vector<float> pitch (static_cast<std::size_t> (blockSize), 132.0f);
+        std::vector<float> pitch (static_cast<std::size_t> (blockSize), fundamentalHz);
         std::vector<float> voiced (static_cast<std::size_t> (blockSize), 1.0f);
         std::vector<float> aperiodic (static_cast<std::size_t> (blockSize), 0.0f);
         std::array<const float*, 1> inputPointers { input.data() };
@@ -239,15 +241,16 @@ namespace
                 const int absolute = offset + i;
                 const double time = static_cast<double> (absolute) / sampleRate;
                 input[static_cast<std::size_t> (i)] = static_cast<float> (
-                    0.22 * std::sin (2.0 * pi * 132.0 * time)
-                    + 0.08 * std::sin (2.0 * pi * 264.0 * time)
-                    + 0.03 * std::sin (2.0 * pi * 396.0 * time));
+                    0.22 * std::sin (2.0 * pi * fundamentalHz * time)
+                    + 0.08 * std::sin (2.0 * pi * 2.0 * fundamentalHz * time)
+                    + 0.03 * std::sin (2.0 * pi * 3.0 * fundamentalHz * time));
                 if (useAnalyzer)
                 {
                     analyzer.processSample (input[static_cast<std::size_t> (i)]);
                     const auto& features = analyzer.getFeatures();
                     pitch[static_cast<std::size_t> (i)] = features.pitchHz;
-                    voiced[static_cast<std::size_t> (i)] = features.voiced;
+                    voiced[static_cast<std::size_t> (i)] = features.voiced
+                        * std::clamp (voicedConfidenceScale, 0.0f, 1.0f);
                     aperiodic[static_cast<std::size_t> (i)] = features.aperiodic;
                     if (features.pitchHz >= 65.0f && features.pitchHz <= 450.0f
                         && features.voiced >= 0.25f)
@@ -274,6 +277,8 @@ namespace
         constexpr int measureEnd = static_cast<int> (sampleRate * 1.05);
         int crossings = 0;
         double energy = 0.0;
+        double sourceToneReal = 0.0;
+        double sourceToneImag = 0.0;
         float previous = rendered[static_cast<std::size_t> (measureStart - 1)];
         for (int n = measureStart; n < measureEnd; ++n)
         {
@@ -281,11 +286,18 @@ namespace
             if (previous <= 0.0f && current > 0.0f)
                 ++crossings;
             energy += static_cast<double> (current) * current;
+            const double phase = 2.0 * pi * fundamentalHz * static_cast<double> (n) / sampleRate;
+            sourceToneReal += static_cast<double> (current) * std::cos (phase);
+            sourceToneImag += static_cast<double> (current) * std::sin (phase);
             previous = current;
         }
         const float duration = static_cast<float> (measureEnd - measureStart) / static_cast<float> (sampleRate);
         result.measuredPitchHz = static_cast<float> (crossings) / duration;
         result.outputRms = static_cast<float> (std::sqrt (energy / static_cast<double> (measureEnd - measureStart)));
+        const double sourceToneRms = std::sqrt (2.0) * std::hypot (sourceToneReal, sourceToneImag)
+                                   / static_cast<double> (measureEnd - measureStart);
+        result.sourceLeakRatio = result.outputRms > 1.0e-6f
+            ? static_cast<float> (sourceToneRms / result.outputRms) : 0.0f;
         if (! analyzedPitches.empty())
         {
             std::sort (analyzedPitches.begin(), analyzedPitches.end());
@@ -1341,6 +1353,25 @@ int main()
                    && std::abs (analyzedHybridTone.measuredPitchHz - expectedHybridPitch) < 12.0f,
                    "live analyzer, transform, and 100% Voice Mix produce the requested +7 semitone voice (measured "
                        + std::to_string (analyzedHybridTone.measuredPitchHz) + " Hz)");
+
+    // Normal speaking pitch can have weaker tracker confidence than an isolated
+    // test tone. At 100% Voice Mix, uncertain vowel energy must still be shifted,
+    // with no strong fundamental left at the source pitch.
+    const auto normalRegisterLowConfidence = renderHybridVoiceTone (true, 118.0f, 0.45f);
+    const float expectedNormalRegisterPitch = 118.0f * std::exp2 (7.0f / 12.0f);
+    ok &= require (normalRegisterLowConfidence.prepared
+                   && normalRegisterLowConfidence.everyTransformSucceeded
+                   && normalRegisterLowConfidence.analyzedPitchHz > 108.0f
+                   && normalRegisterLowConfidence.analyzedPitchHz < 128.0f,
+                   "the analyzer tracks a normal 118 Hz speaking register with reduced voicing confidence");
+    ok &= require (normalRegisterLowConfidence.outputRms > 0.05f
+                   && std::abs (normalRegisterLowConfidence.measuredPitchHz
+                                - expectedNormalRegisterPitch) < 14.0f,
+                   "low-confidence normal-register voice still receives the requested +7 semitone shift (measured "
+                       + std::to_string (normalRegisterLowConfidence.measuredPitchHz) + " Hz)");
+    ok &= require (normalRegisterLowConfidence.sourceLeakRatio < 0.25f,
+                   "100% Voice Mix does not retain a prominent 118 Hz dry layer (relative source-pitch energy "
+                       + std::to_string (normalRegisterLowConfidence.sourceLeakRatio) + ")");
 
     if (finiteOutput)
     {
