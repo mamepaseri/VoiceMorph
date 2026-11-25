@@ -513,6 +513,45 @@ int main()
                    && fullBreathResidual.first < fullBreathResidual.second * 1.01,
                    "low-confidence fallback keeps full unvoiced energy with Breath Preserve at 100%");
 
+    // A normal 118 Hz vowel with weak tracker confidence must enter the transform,
+    // rather than returning as a second unshifted voice at 100% Voice Mix.
+    HybridVoicePath lowConfidenceVoicePath;
+    ok &= require (lowConfidenceVoicePath.prepare (1, sampleRate, 128, 0, 0),
+                   "low-confidence speaking-register path prepares");
+    CaptureTransformState lowConfidenceCapture;
+    std::array<float, 128> lowVoiceInput {}, lowVoiceOutput {}, lowVoicePitch {}, lowVoiceConfidence {}, lowVoiceAperiodic {};
+    lowVoicePitch.fill (118.0f);
+    lowVoiceConfidence.fill (0.45f);
+    std::array<const float*, 1> lowVoiceInputs { lowVoiceInput.data() };
+    std::array<float*, 1> lowVoiceOutputs { lowVoiceOutput.data() };
+    double lowVoiceInputEnergy = 0.0;
+    bool lowVoiceBlocksSucceeded = true;
+    for (int offset = 0; offset < 8192; offset += 128)
+    {
+        for (int i = 0; i < 128; ++i)
+        {
+            const double time = static_cast<double> (offset + i) / sampleRate;
+            const float sample = static_cast<float> (0.22 * std::sin (2.0 * pi * 118.0 * time)
+                + 0.08 * std::sin (2.0 * pi * 236.0 * time)
+                + 0.03 * std::sin (2.0 * pi * 354.0 * time));
+            lowVoiceInput[static_cast<std::size_t> (i)] = sample;
+        }
+        lowVoiceBlocksSucceeded &= lowConfidenceVoicePath.processBlock (
+            lowVoiceInputs.data(), lowVoiceOutputs.data(), 1, 128,
+            lowVoicePitch.data(), lowVoiceConfidence.data(), lowVoiceAperiodic.data(), 100.0f,
+            captureTransform, &lowConfidenceCapture, 0.0f, true, false);
+        if (offset == 2048)
+            lowConfidenceCapture = {};
+        if (offset >= 2048)
+            for (float sample : lowVoiceInput)
+                lowVoiceInputEnergy += static_cast<double> (sample) * sample;
+    }
+    const double lowVoiceTransformRatio = lowVoiceInputEnergy > 0.0
+        ? std::sqrt (lowConfidenceCapture.periodicEnergy / lowVoiceInputEnergy) : 0.0;
+    ok &= require (lowVoiceBlocksSucceeded && lowVoiceTransformRatio > 0.80,
+                   "low-confidence 118 Hz vowel is routed through the transform instead of left as dry residual (ratio "
+                       + std::to_string (lowVoiceTransformRatio) + ")");
+
     // Reproduce stale pitch/voicing controls at a vowel-to-frication boundary.
     // Once the local one-period correlation rejects the new noise, the
     // confidence fallback must carry it through even though the analyzer still
