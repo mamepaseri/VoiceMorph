@@ -1,46 +1,50 @@
 # Changelog
 
-## 0.9.1 — 2026-11-25 — Experimental beta candidate
+## 0.8.8 Live 12 stability candidate — 2026-11-25
 
-- Prevented unshifted, low-confidence vocal residue from being blended back into fully wet output. Material the tracker cannot classify reliably now follows the pitch/formant transform; only explicitly classified breath, consonant, and transient detail can bypass it.
-- Enabled Signalsmith formant compensation so pitch transposition does not automatically move the vocal envelope with it. The Formant control remains independent for deliberate timbre changes.
-- Made Pitch Dynamics neutral by default and reduced its maximum contour expansion. The formant reference now waits for six consistent, high-confidence pitch frames instead of adopting an ambiguous startup estimate.
-- Avoided duplicate host latency notifications across prepare/release cycles and added a Windows lifecycle probe that opens and closes the editor's Advanced window.
-- Added DSP regressions for the unshifted-residue leak at 100% Voice Mix, onset/tail routing, mix endpoints, and stable pitch/formant startup.
-- This candidate preserves the 0.9.0 editor. Synthetic tests cannot establish naturalness; listening in Live 12 and Sonar remains necessary.
+- Keep the host-reported latency stable when Live releases and prepares the processor; only notify the host when the prepared latency value actually changes.
+- Ableton's saved usage log shows 131,071 queued `ProcessingLatencyInSamplesChanged` messages in a session where VoiceMorph 0.8.7 had been inserted. This candidate targets latency-notification churn; the crash cause is not confirmed because the report has no usable dump or stack.
+- Added a lifecycle regression that checks the reported latency remains unchanged across repeated prepare/release cycles.
+- Keeps the 0.8.7 system-font UI isolation and all previous DSP work. This remains a local candidate; the v0.8.3 release/tag/assets are unchanged.
 
-## 0.9.0 — 2026-11-25 — Experimental beta
+## 0.8.7 UI isolation candidate — 2026-11-23
 
-- Carries forward the 0.8.8 metallic dashboard redesign as the 0.9.0 visual baseline.
-- Keeps the graphite/cyan dark palette, pale aluminum light palette, multi-band chrome reflections, and slightly lighter Turbo Racers Regular rendering.
-- No DSP, pitch/formant, or residual-routing behavior changed from 0.8.8.
-- This remains an experimental beta. No natural voice quality or Sonar validation is claimed.
+- Switched the custom editor to the system typeface by default while retaining the same controls and graphical layout. The bundled display font remains available as a build option.
+- This candidate isolates a possible custom-font rendering issue reported when opening the editor in Ableton Live. It does not establish that the font caused the crash; Live must be retested.
+- Keeps the 0.8.6 Signalsmith exception containment and all earlier DSP fixes. The v0.8.3 release/tag/assets remain unchanged.
 
-## 0.8.8 — 2026-11-25 — Experimental beta
+## 0.8.6 candidate — 2026-11-23
 
-- Increased the metallic character of the dashboard with multi-band chrome/aluminum rotary bezels, specular edge highlights, satin panel surfaces, and reflective slider/button caps.
-- Tuned dark mode to the graphite/cyan preview and light mode to pale aluminum with a white LCD and black text.
-- Kept the embedded Turbo Racers Regular typeface and removed synthetic bold styling for a slightly thinner appearance.
-- Visual update only; DSP behavior is unchanged. Natural voice quality and Sonar playback have not been validated.
+- Added a C++ exception guard around the Signalsmith real-time transform call. If it throws, transformation is disabled and the hybrid path falls back to latency-aligned dry audio instead of allowing the exception to terminate the host. This is defensive containment; the Ableton crash reports do not contain enough detail to confirm this as their cause.
+- Added a Signalsmith-enabled stereo stress regression matching Live's 48 kHz / 2048-sample setup, including 10 ms processing hops, pitch/formant changes, voiced/aperiodic transitions, and repeated prepare/reset cycles across more than two minutes of synthetic audio.
+- Rebuilt the Windows x64 VST3 with a distinct candidate version so it can be identified separately from the reported 0.8.4 and 0.8.5 instances. The released v0.8.3 assets remain unchanged.
 
-## 0.8.5 — 2026-11-23 — Experimental beta
+## 0.8.5 — 2026-11-23 — Experimental beta (published)
 
 - Fixed low-confidence voice-path dropouts at quiet onsets, fricatives, intermittent F0 loss, and fading tails. A fast local confidence estimate protects uncertain residual detail while the slower estimate keeps periodic splitting stable.
-- Kept Breath, Consonant, and Transient Preserve controls independent from the low-confidence fallback. At Mix 100%, the separate dry-reference branch is excluded; uncertain or unvoiced residual audio may still pass through unshifted to avoid gaps.
+- At Mix 100%, the separate dry-reference branch is excluded; uncertain or unvoiced residual audio may still pass through unshifted to avoid gaps.
 - Added deterministic offline regressions for Mix endpoints, unvoiced audio at 100% Mix, phrase transitions, transient preservation, neutral level, and the Signalsmith-enabled pitch/latency path.
-- Added the Graillon FREE 3.2 product and user guide as design reference. Applied only relevant control organization and signal-path concepts; no key/scale correction or doubler was added.
-- Linux strict-warning, sanitizer, and Signalsmith-enabled DSP CI passed. Windows x64 VST3 CI passed with Signalsmith enabled and disabled.
-- This release does not claim natural voice quality or Sonar validation. Robotic or warbly artifacts may remain.
+- Added the Graillon FREE 3.2 product and user guide as design references; no key/scale correction or doubler was added.
+- Linux strict-warning, sanitizer, Signalsmith DSP, Windows VST3, and installer smoke checks passed. These checks do not establish natural voice quality; robotic or warbly artifacts may remain.
 
-## 0.8.4 — 2026-11-23 — Experimental beta
+## 0.8.4 — 2026-11-23 — Experimental beta (published)
 
-- Embedded Turbo Racers Regular in the plug-in so the dashboard lettering is consistent across systems and DAWs.
-- Refined the rotary bezel with a chrome/aluminum metal ring, a compact cyan value tab, and a thinner amount arc around the LCD edge.
-- Restored the full NATURAL / BALANCED / PRECISE Voice Mode labels. Kept the Input and Output faders equal in width; Voice Mix remains smaller than the matching Tracking and Breath dials, with no numeric readout inside them.
+- Embedded Turbo Racers Regular for consistent dashboard lettering and refined the rotary bezel, Voice Mode labels, and fader layout.
 - Windows x64 VST3 builds passed with Signalsmith enabled and disabled. DSP tests and installer install/uninstall smoke checks passed.
+- This visual release did not change the pitch-shifting algorithm or establish natural voice quality.
 
-**Experimental limitations:** This visual release does not change the pitch-shifting algorithm or establish natural voice quality. No Cakewalk Sonar / Zoom UAC-232 listening validation was performed; robotic or warbly artifacts may remain.
+## 0.8.4 dropout-fix candidate — 2026-11-23
 
+- Fixed voice-path dropouts at phrase onsets and voiced/unvoiced transitions. Uncertain voiced material now goes through the pitch/formant transform instead of bypassing it as an unshifted residual.
+- Kept Breath, Consonant, and Transient Preserve controls independent from the low-confidence fallback.
+- Added regression coverage for quiet onsets, stale pitch during frication, intermittent F0 loss, fading tails, unvoiced input at 100% Voice Mix, and the complete Voice Mix range.
+- Reduced the robotic contour-expansion risk: Pitch Dynamics now defaults to neutral, is capped at 1.25x, and waits for six consistent high-confidence F0 frames before establishing its reference. Presets are neutral by default.
+- Formant compensation now holds the source spectral envelope while Pitch is shifted; the Formant control remains an independent offset.
+- Routed low-confidence voiced material through the transform instead of the residual path, preventing unshifted source voice from leaking at 100% Voice Mix while retaining explicitly classified breath and transient detail.
+- Removed the temporary T-De-Esser-inspired controls and high-band level-reduction path from the candidate so sibilance shaping does not color the pitch/formant audition.
+- Added Graillon FREE 3.2 documentation and UI/function concepts to the reference analysis; no paid version or binary was needed for this comparison.
+- Consolidated the dropout diagnosis, candidate routing change, regression thresholds, and outstanding validation in [docs/DROPOUT_FIX_CANDIDATE.md](docs/DROPOUT_FIX_CANDIDATE.md).
+- Standalone DSP regressions pass with MSVC, and the Windows x64 VST3 build succeeds with Signalsmith and WORLD enabled (0 errors; warnings recorded in [BUILD_VALIDATION.md](BUILD_VALIDATION.md)). Real-voice DAW listening validation remains pending. The 0.8.3 changelog entry and release assets are unchanged.
 
 ## 0.8.3 — 2026-11-20 — Experimental beta
 
@@ -108,3 +112,4 @@
 ## Prototype 0.8.0 — Tracking control
 - Connected the Tracking parameter to streaming F0 / voiced / aperiodic smoothing. Lower values favour stability; higher values follow pitch and voicing transitions faster.
 - Added a regression test for a synthetic 132 Hz → 220 Hz transition. The test measures approximately 180 ms at 0% tracking and 60 ms at 100% tracking at 48 kHz.
+
