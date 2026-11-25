@@ -1,4 +1,3 @@
-Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
 #include "../Source/Dsp/SpeechFeatureAnalyzer.h"
 #include "../Source/Dsp/PitchContourMapper.h"
 #include "../Source/Dsp/AdaptivePeriodicSplitter.h"

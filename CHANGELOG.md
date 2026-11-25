@@ -1,4 +1,3 @@
-Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
 # Changelog
 
 ## 0.9.1 — 2026-11-25 — Experimental beta candidate

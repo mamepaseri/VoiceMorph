@@ -1,4 +1,3 @@
-Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "ParameterMapping.h"
