@@ -1,4 +1,12 @@
-# Build / validation status — 2026-11-23 — 0.8.5 Beta
+# Build / validation status — 2026-11-25 — Prototype 0.8.8
+
+## 0.8.8 visual candidate
+
+- Updated the dashboard materials, graphite/cyan palette, and Turbo Racers text weight. No audio-processing behavior changed.
+- The supplied Turbo Racers archive contains only the Regular TTF. The UI keeps that face and removes additional synthetic bolding rather than replacing it with a different family.
+- Windows x64 VST3 build and installer smoke tests are pending for the release candidate. This visual update does not establish natural voice quality or Sonar playback.
+
+## Earlier validation
 
 ## 0.8.5 release-candidate validation
 

@@ -10,16 +10,18 @@ namespace
     };
 
     const UiPalette darkPalette {
-        juce::Colour (0xff151a24), juce::Colour (0xff292f40), juce::Colour (0xff394257),
-        juce::Colour (0xff707b91), juce::Colour (0xffedf0f4), juce::Colour (0xffa4adbd),
-        juce::Colour (0xff39d6e5), juce::Colour (0xff1e7782), juce::Colour (0xff111722),
-        juce::Colour (0xff354052)
+        // Graphite dashboard surfaces with cool chrome highlights and the cyan display accent.
+        juce::Colour (0xff171c22), juce::Colour (0xff252c32), juce::Colour (0xff3c454c),
+        juce::Colour (0xff879399), juce::Colour (0xffeef2f4), juce::Colour (0xffaab4b9),
+        juce::Colour (0xff39dbe4), juce::Colour (0xff176d76), juce::Colour (0xff0b1116),
+        juce::Colour (0xff344148)
     };
     const UiPalette lightPalette {
-        juce::Colour (0xffcfd5d9), juce::Colour (0xffe4e8eb), juce::Colour (0xfff3f5f6),
-        juce::Colour (0xff9aa5ab), juce::Colour (0xff101418), juce::Colour (0xff414b52),
-        juce::Colour (0xff22c7d6), juce::Colour (0xff137783), juce::Colour (0xffffffff),
-        juce::Colour (0xffc9d1d5)
+        // Light mode uses satin aluminum and a white LCD with dark lettering.
+        juce::Colour (0xffd0d6d9), juce::Colour (0xffe3e7e9), juce::Colour (0xfff5f7f8),
+        juce::Colour (0xff8e999e), juce::Colour (0xff121719), juce::Colour (0xff4e595e),
+        juce::Colour (0xff20c5d1), juce::Colour (0xff14727b), juce::Colour (0xffffffff),
+        juce::Colour (0xffd4dde0)
     };
 
     const UiPalette& paletteFor (bool light) noexcept
@@ -69,7 +71,7 @@ namespace
             g.fillRoundedRectangle (bounds.getX() + 16.0f, bounds.getY() + 1.0f,
                                     42.0f, 2.0f, 1.0f);
             g.setColour (colours.text);
-            g.setFont (lookAndFeel.themedFont (16.0f, juce::Font::bold));
+            g.setFont (lookAndFeel.themedFont (16.0f, juce::Font::plain));
             g.drawText ("ADVANCED PROCESSING", getLocalBounds().reduced (18, 12).removeFromTop (28),
                         juce::Justification::left);
         }
@@ -189,22 +191,58 @@ void VoiceMorphLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, i
     g.setColour (juce::Colours::black.withAlpha (lightTheme ? 0.18f : 0.48f));
     g.fillEllipse (cx - outerR + 1.5f, cy - outerR + 4.0f, outerR * 2.0f, outerR * 2.0f);
 
-    juce::ColourGradient metal (lightTheme ? juce::Colour (0xfffafbfb) : juce::Colour (0xfff3f4f5),
-                                cx - outerR, cy - outerR,
-                                lightTheme ? juce::Colour (0xff9da8ae) : juce::Colour (0xff454f5d),
-                                cx + outerR, cy + outerR, false);
+    juce::ColourGradient metal (lightTheme ? juce::Colour (0xfff8fafb) : juce::Colour (0xfff4f7f8),
+                                cx - outerR * 0.84f, cy - outerR,
+                                lightTheme ? juce::Colour (0xff737f84) : juce::Colour (0xff171d22),
+                                cx + outerR * 0.84f, cy + outerR, false);
+    metal.addColour (0.14, lightTheme ? juce::Colour (0xffaab4b8) : juce::Colour (0xff737f84));
+    metal.addColour (0.32, lightTheme ? juce::Colour (0xfffdfefe) : juce::Colour (0xffdfe5e8));
+    metal.addColour (0.49, lightTheme ? juce::Colour (0xffa1abae) : juce::Colour (0xff59646a));
+    metal.addColour (0.67, lightTheme ? juce::Colour (0xfff3f6f7) : juce::Colour (0xffcbd4d7));
+    metal.addColour (0.86, lightTheme ? juce::Colour (0xff899499) : juce::Colour (0xff4b565c));
     g.setGradientFill (metal);
     g.fillEllipse (cx - outerR, cy - outerR, outerR * 2.0f, outerR * 2.0f);
-    g.setColour (lightTheme ? juce::Colour (0xff737f85) : juce::Colour (0xff090c12));
+    g.setColour (lightTheme ? juce::Colour (0xff69757a) : juce::Colour (0xff070a0d));
     g.drawEllipse (cx - outerR, cy - outerR, outerR * 2.0f, outerR * 2.0f,
                    juce::jmax (1.0f, side * 0.012f));
 
+    // Thin specular bands make the outer shell read as machined chrome/aluminum.
+    auto drawMetalArc = [&] (float radius, float fromDegrees, float toDegrees,
+                             juce::Colour colour, float thickness)
+    {
+        juce::Path reflection;
+        constexpr int segments = 32;
+        for (int i = 0; i <= segments; ++i)
+        {
+            const float t = static_cast<float> (i) / static_cast<float> (segments);
+            const float degrees = fromDegrees + (toDegrees - fromDegrees) * t;
+            const float radians = degrees * juce::MathConstants<float>::pi / 180.0f;
+            const juce::Point<float> point { cx + std::cos (radians) * radius,
+                                             cy + std::sin (radians) * radius };
+            if (i == 0) reflection.startNewSubPath (point); else reflection.lineTo (point);
+        }
+        g.setColour (colour);
+        g.strokePath (reflection, juce::PathStrokeType (thickness, juce::PathStrokeType::curved,
+                                                        juce::PathStrokeType::rounded));
+    };
+    drawMetalArc (outerR * 0.985f, 205.0f, 335.0f,
+                  juce::Colours::white.withAlpha (lightTheme ? 0.90f : 0.76f),
+                  juce::jmax (0.8f, side * 0.008f));
+    drawMetalArc (outerR * 0.985f, 25.0f, 155.0f,
+                  juce::Colours::black.withAlpha (lightTheme ? 0.22f : 0.58f),
+                  juce::jmax (0.7f, side * 0.006f));
+
     const float ringOuter = side * 0.393f;
     const float ringInner = side * 0.326f;
-    juce::ColourGradient bezel (lightTheme ? juce::Colour (0xfff0f3f4) : juce::Colour (0xff596575),
-                                cx - ringOuter, cy - ringOuter,
-                                lightTheme ? juce::Colour (0xff9aa5aa) : juce::Colour (0xff202733),
-                                cx + ringOuter, cy + ringOuter, false);
+    juce::ColourGradient bezel (lightTheme ? juce::Colour (0xfff8fafb) : juce::Colour (0xffbbc5c9),
+                                cx - ringOuter * 0.90f, cy - ringOuter,
+                                lightTheme ? juce::Colour (0xff7b878c) : juce::Colour (0xff20272c),
+                                cx + ringOuter * 0.90f, cy + ringOuter, false);
+    bezel.addColour (0.18, lightTheme ? juce::Colour (0xffaab4b8) : juce::Colour (0xff7c888d));
+    bezel.addColour (0.38, lightTheme ? juce::Colour (0xfffafcfc) : juce::Colour (0xffeef2f3));
+    bezel.addColour (0.56, lightTheme ? juce::Colour (0xffa0aaae) : juce::Colour (0xff536067));
+    bezel.addColour (0.74, lightTheme ? juce::Colour (0xfff0f3f4) : juce::Colour (0xffd1d9dc));
+    bezel.addColour (0.90, lightTheme ? juce::Colour (0xff899499) : juce::Colour (0xff59656b));
     g.setGradientFill (bezel);
     g.fillEllipse (cx - ringOuter, cy - ringOuter, ringOuter * 2.0f, ringOuter * 2.0f);
     g.setColour (lightTheme ? juce::Colour (0xfff6f8f9) : juce::Colour (0xff6d7889).withAlpha (0.85f));
@@ -213,10 +251,12 @@ void VoiceMorphLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, i
     g.setColour (lightTheme ? juce::Colour (0xff808c92) : juce::Colour (0xff070a10));
     g.fillEllipse (cx - ringInner, cy - ringInner, ringInner * 2.0f, ringInner * 2.0f);
 
-    juce::ColourGradient faceGrad (lightTheme ? juce::Colour (0xffffffff) : juce::Colour (0xff3a4352),
+    juce::ColourGradient faceGrad (lightTheme ? juce::Colour (0xffffffff) : juce::Colour (0xff465158),
                                    cx - faceR * 0.78f, cy - faceR,
-                                   lightTheme ? juce::Colour (0xffe4e9ec) : juce::Colour (0xff151a23),
+                                   lightTheme ? juce::Colour (0xffdce2e4) : juce::Colour (0xff11171b),
                                    cx + faceR, cy + faceR, false);
+    faceGrad.addColour (0.28, lightTheme ? juce::Colour (0xfff8fafb) : juce::Colour (0xff303a40));
+    faceGrad.addColour (0.62, lightTheme ? juce::Colour (0xffe8edef) : juce::Colour (0xff1c252a));
     g.setGradientFill (faceGrad);
     g.fillEllipse (cx - faceR, cy - faceR, faceR * 2.0f, faceR * 2.0f);
     g.setColour (lightTheme ? juce::Colour (0xffa8b1b6) : juce::Colour (0xff717c8d).withAlpha (0.9f));
@@ -294,11 +334,11 @@ void VoiceMorphLookAndFeel::drawRotarySlider (juce::Graphics& g, int x, int y, i
         auto units = juce::Rectangle<float> (cx - faceR * 0.62f, cy + side * 0.085f,
                                               faceR * 1.24f, side * 0.13f);
         g.setColour (colours.text);
-        g.setFont (themedFont (juce::jlimit (17.0f, 25.0f, side * 0.145f), juce::Font::bold));
+        g.setFont (themedFont (juce::jlimit (17.0f, 25.0f, side * 0.145f), juce::Font::plain));
         g.drawFittedText (juce::String (slider.getValue(), lcdDial ? 2 : 0), number.toNearestInt(),
                           juce::Justification::centred, 1);
         g.setColour (colours.accent);
-        g.setFont (themedFont (juce::jmax (10.0f, side * 0.075f), juce::Font::bold));
+        g.setFont (themedFont (juce::jmax (10.0f, side * 0.075f), juce::Font::plain));
         g.drawFittedText (lcdDial ? "ST" : "%", units.toNearestInt(), juce::Justification::centred, 1);
     }
 }
@@ -331,10 +371,14 @@ void VoiceMorphLookAndFeel::drawLinearSlider (juce::Graphics& g, int x, int y, i
         juce::Rectangle<float> cap (cx - 19.0f, sliderPos - 10.0f, 38.0f, 20.0f);
         g.setColour (juce::Colours::black.withAlpha (lightTheme ? 0.16f : 0.42f));
         g.fillRoundedRectangle (cap.translated (0.0f, 2.0f), 4.0f);
-        juce::ColourGradient capGrad (lightTheme ? juce::Colour (0xfff9fafb) : juce::Colour (0xfff3f4f5),
+        juce::ColourGradient capGrad (lightTheme ? juce::Colour (0xfff9fbfb) : juce::Colour (0xfff5f7f8),
                                       cap.getX(), cap.getY(),
-                                      lightTheme ? juce::Colour (0xffaab4b9) : juce::Colour (0xff454f5d),
+                                      lightTheme ? juce::Colour (0xff8b969a) : juce::Colour (0xff424d53),
                                       cap.getX(), cap.getBottom(), false);
+        capGrad.addColour (0.18, lightTheme ? juce::Colour (0xffb4bdc1) : juce::Colour (0xff8f9a9e));
+        capGrad.addColour (0.42, lightTheme ? juce::Colour (0xffffffff) : juce::Colour (0xffe6ecee));
+        capGrad.addColour (0.62, lightTheme ? juce::Colour (0xffa5afb3) : juce::Colour (0xff7e898e));
+        capGrad.addColour (0.84, lightTheme ? juce::Colour (0xfff3f6f7) : juce::Colour (0xffd4dcdf));
         g.setGradientFill (capGrad);
         g.fillRoundedRectangle (cap, 4.0f);
         g.setColour (colours.accent);
@@ -363,7 +407,12 @@ void VoiceMorphLookAndFeel::drawButtonBackground (juce::Graphics& g, juce::Butto
     const auto bottom = toggled ? colours.panel.darker (0.02f) : colours.panel.darker (0.16f);
     g.setColour (juce::Colours::black.withAlpha (lightTheme ? 0.16f : 0.38f));
     g.fillRoundedRectangle (r.translated (0.0f, 2.0f), 7.0f);
-    juce::ColourGradient grad (highlighted ? top.brighter (0.08f) : top, r.getX(), r.getY(), bottom, r.getX(), r.getBottom(), false);
+    juce::ColourGradient grad (highlighted ? top.brighter (0.12f) : top.brighter (0.04f),
+                                r.getX(), r.getY(), bottom.darker (0.04f), r.getX(), r.getBottom(), false);
+    grad.addColour (0.20, top.brighter (0.14f));
+    grad.addColour (0.46, bottom.brighter (0.18f));
+    grad.addColour (0.62, bottom.darker (0.08f));
+    grad.addColour (0.84, top.darker (0.10f));
     g.setGradientFill (grad);
     g.fillRoundedRectangle (r, 7.0f);
     g.setColour (toggled ? colours.accent.withAlpha (0.92f) : colours.edge.withAlpha (0.84f));
@@ -386,10 +435,14 @@ void VoiceMorphLookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleBut
     const auto& colours = paletteFor (lightTheme);
     auto bounds = button.getLocalBounds().toFloat().reduced (1.0f);
     const bool active = button.getToggleState();
-    juce::ColourGradient fill (active ? colours.panelHighlight.brighter (0.08f) : colours.panelHighlight,
+    juce::ColourGradient fill (active ? colours.panelHighlight.brighter (0.12f) : colours.panelHighlight.brighter (0.04f),
                                bounds.getX(), bounds.getY(),
-                               active ? colours.panel.darker (0.02f) : colours.panel.darker (0.16f),
+                               active ? colours.panel.darker (0.04f) : colours.panel.darker (0.20f),
                                bounds.getX(), bounds.getBottom(), false);
+    fill.addColour (0.18, colours.panelHighlight.brighter (0.16f));
+    fill.addColour (0.42, colours.panelHighlight);
+    fill.addColour (0.60, colours.panel.darker (0.06f));
+    fill.addColour (0.84, colours.panelHighlight.darker (0.08f));
     g.setColour (juce::Colours::black.withAlpha (lightTheme ? 0.12f : 0.34f));
     g.fillRoundedRectangle (bounds.translated (0.0f, 2.0f), 6.0f);
     g.setGradientFill (fill);
@@ -408,7 +461,7 @@ void VoiceMorphLookAndFeel::drawToggleButton (juce::Graphics& g, juce::ToggleBut
         g.fillRoundedRectangle (bounds, 6.0f);
     }
     g.setColour (active ? colours.accent : colours.text);
-    g.setFont (themedFont (juce::jmin (12.0f, bounds.getHeight() * 0.38f), juce::Font::bold));
+    g.setFont (themedFont (juce::jmin (12.0f, bounds.getHeight() * 0.38f), juce::Font::plain));
     g.drawFittedText (button.getButtonText(), bounds.reduced (8.0f, 1.0f).toNearestInt(),
                       juce::Justification::centred, 2);
 }
@@ -428,7 +481,7 @@ void VoiceMorphAudioProcessorEditor::PitchContourMonitor::paint (juce::Graphics&
 
     auto inside = bounds.reduced (16.0f, 12.0f);
     auto legend = inside.removeFromTop (27.0f);
-    g.setFont (lookAndFeel.themedFont (juce::jmax (10.0f, getHeight() * 0.021f), juce::Font::bold));
+    g.setFont (lookAndFeel.themedFont (juce::jmax (10.0f, getHeight() * 0.021f), juce::Font::plain));
     g.setColour (colours.accent);
     g.drawText ("PITCH CONTOUR", legend.removeFromLeft (180.0f).toNearestInt(), juce::Justification::left);
     g.setFont (lookAndFeel.themedFont (juce::jmax (8.0f, getHeight() * 0.016f)));
@@ -545,17 +598,17 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     setSize (1220, 810);
 
     titleLabel.setText ("VOICEMORPH", juce::dontSendNotification);
-    titleLabel.setFont (lookAndFeel.themedFont (21.0f, juce::Font::bold));
+    titleLabel.setFont (lookAndFeel.themedFont (21.0f, juce::Font::plain));
     titleLabel.setColour (juce::Label::textColourId, paletteFor (lookAndFeel.isLightTheme()).text);
     addAndMakeVisible (titleLabel);
 
     statusLabel.setText ("ANALYZER  /  WAITING FOR INPUT", juce::dontSendNotification);
-    statusLabel.setFont (lookAndFeel.themedFont (9.0f, juce::Font::bold));
+    statusLabel.setFont (lookAndFeel.themedFont (9.0f, juce::Font::plain));
     statusLabel.setColour (juce::Label::textColourId, paletteFor (lookAndFeel.isLightTheme()).accent);
     addAndMakeVisible (statusLabel);
 
     presetLabel.setText ("PRESET", juce::dontSendNotification);
-    presetLabel.setFont (lookAndFeel.themedFont (10.0f, juce::Font::bold));
+    presetLabel.setFont (lookAndFeel.themedFont (10.0f, juce::Font::plain));
     presetLabel.setColour (juce::Label::textColourId, paletteFor (lookAndFeel.isLightTheme()).muted);
     addAndMakeVisible (presetLabel);
     presetBox.addItemList ({ "Default", "Natural Lift", "Soft / Airy", "Warm / Dark", "Character" }, 1);
@@ -588,7 +641,7 @@ VoiceMorphAudioProcessorEditor::VoiceMorphAudioProcessorEditor (VoiceMorphAudioP
     auto setupLabel = [this] (juce::Label& label, const juce::String& name)
     {
         label.setText (name, juce::dontSendNotification);
-        label.setFont (lookAndFeel.themedFont (10.0f, juce::Font::bold));
+        label.setFont (lookAndFeel.themedFont (10.0f, juce::Font::plain));
         label.setColour (juce::Label::textColourId, paletteFor (lookAndFeel.isLightTheme()).muted);
         label.setJustificationType (juce::Justification::centred);
         addAndMakeVisible (label);
@@ -682,13 +735,21 @@ void VoiceMorphAudioProcessorEditor::drawPanel (juce::Graphics& g, juce::Rectang
     const auto& colours = paletteFor (lookAndFeel.isLightTheme());
     g.setColour (juce::Colours::black.withAlpha (lookAndFeel.isLightTheme() ? 0.10f : 0.28f));
     g.fillRoundedRectangle (r.translated (0.0f, 2.0f), corner);
-    juce::ColourGradient grad (colours.panelHighlight, r.getX(), r.getY(),
-                               colours.panel.darker (lookAndFeel.isLightTheme() ? 0.02f : 0.20f),
+    juce::ColourGradient grad (colours.panelHighlight.brighter (0.05f), r.getX(), r.getY(),
+                               colours.panel.darker (lookAndFeel.isLightTheme() ? 0.04f : 0.24f),
                                r.getX(), r.getBottom(), false);
+    grad.addColour (0.16, colours.panelHighlight.brighter (0.10f));
+    grad.addColour (0.38, colours.panel);
+    grad.addColour (0.56, colours.panelHighlight.withAlpha (0.92f));
+    grad.addColour (0.78, colours.panel.darker (0.05f));
     g.setGradientFill (grad);
     g.fillRoundedRectangle (r, corner);
-    g.setColour (colours.edge.withAlpha (0.72f));
-    g.drawRoundedRectangle (r, corner, 1.0f);
+    g.setColour (colours.edge.withAlpha (0.88f));
+    g.drawRoundedRectangle (r, corner, 1.1f);
+    g.setColour (juce::Colours::white.withAlpha (lookAndFeel.isLightTheme() ? 0.66f : 0.20f));
+    g.drawLine (r.getX() + corner, r.getY() + 1.4f, r.getRight() - corner, r.getY() + 1.4f, 1.0f);
+    g.setColour (juce::Colours::black.withAlpha (lookAndFeel.isLightTheme() ? 0.09f : 0.26f));
+    g.drawRoundedRectangle (r.reduced (2.0f), juce::jmax (1.0f, corner - 2.0f), 0.7f);
 }
 
 void VoiceMorphAudioProcessorEditor::paint (juce::Graphics& g)

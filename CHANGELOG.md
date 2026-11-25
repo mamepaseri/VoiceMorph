@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.8 — 2026-11-25 — Experimental beta
+
+- Increased the metallic character of the dashboard with multi-band chrome/aluminum rotary bezels, specular edge highlights, satin panel surfaces, and reflective slider/button caps.
+- Tuned dark mode to the graphite/cyan preview and light mode to pale aluminum with a white LCD and black text.
+- Kept the embedded Turbo Racers Regular typeface and removed synthetic bold styling for a slightly thinner appearance.
+- Visual update only; DSP behavior is unchanged. Natural voice quality and Sonar playback have not been validated.
+
 ## 0.8.5 — 2026-11-23 — Experimental beta
 
 - Fixed low-confidence voice-path dropouts at quiet onsets, fricatives, intermittent F0 loss, and fading tails. A fast local confidence estimate protects uncertain residual detail while the slower estimate keeps periodic splitting stable.
