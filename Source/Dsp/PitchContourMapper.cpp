@@ -1,3 +1,4 @@
+Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
 #include "PitchContourMapper.h"
 
 #include <algorithm>
@@ -17,21 +18,28 @@ void PitchContourMapper::reset() noexcept
     pendingLog2Hz = 0.0f;
     smoothedOffsetSemitones = 0.0f;
     pendingJumpFrames = 0;
+    baselineSeedLog2Hz.fill (0.0f);
+    baselineSeedCount = 0;
     baselineReady = false;
     previousPitchReady = false;
 }
 
 void PitchContourMapper::setDynamicsPercent (float amountPercent) noexcept
 {
-    dynamicsPercent = std::clamp (std::isfinite (amountPercent) ? amountPercent : 75.0f,
+    dynamicsPercent = std::clamp (std::isfinite (amountPercent) ? amountPercent : 0.0f,
                                   0.0f, 100.0f);
 }
 
 float PitchContourMapper::getExpansionRatio() const noexcept
 {
     // 0% leaves the contour unchanged; 100% expands phrase-relative movement
-    // by at most 1.45x. This bounded range avoids extreme pitch excursions.
-    return 1.0f + 0.45f * dynamicsPercent * 0.01f;
+    // by at most 1.25x to keep the optional effect subtle.
+    return 1.0f + 0.25f * dynamicsPercent * 0.01f;
+}
+
+float PitchContourMapper::getBaselinePitchHz() const noexcept
+{
+    return baselineReady ? std::exp2 (baselineLog2Hz) : 0.0f;
 }
 
 float PitchContourMapper::processFrame (float pitchHz, float voicedConfidence) noexcept
@@ -44,54 +52,74 @@ float PitchContourMapper::processFrame (float pitchHz, float voicedConfidence) n
     float targetOffset = 0.0f;
     bool rejectOutlier = false;
 
-    if (valid)
+    if (! baselineReady)
     {
-        float measuredLog2 = std::log2 (pitchHz);
-        if (! baselineReady)
+        // Do not let a low-confidence or isolated startup estimate establish
+        // the phrase reference. Require six consecutive, confident F0 frames
+        // whose adjacent values stay within about 2.4 semitones.
+        constexpr float seedConfidence = 0.60f;
+        constexpr float maximumSeedStepLog2 = 0.20f;
+        if (valid && confidence >= seedConfidence)
         {
-            baselineLog2Hz = measuredLog2;
-            lastAcceptedLog2Hz = measuredLog2;
-            baselineReady = true;
-            previousPitchReady = true;
+            const float measuredLog2 = std::log2 (pitchHz);
+            if (baselineSeedCount > 0
+                && std::abs (measuredLog2 - baselineSeedLog2Hz[baselineSeedCount - 1])
+                       > maximumSeedStepLog2)
+                baselineSeedCount = 0;
+
+            baselineSeedLog2Hz[baselineSeedCount++] = measuredLog2;
+            if (baselineSeedCount == baselineSeedFrameCount)
+            {
+                auto sortedSeed = baselineSeedLog2Hz;
+                std::sort (sortedSeed.begin(), sortedSeed.end());
+                baselineLog2Hz = 0.5f * (sortedSeed[2] + sortedSeed[3]);
+                lastAcceptedLog2Hz = baselineLog2Hz;
+                baselineReady = true;
+                previousPitchReady = true;
+                baselineSeedCount = 0;
+            }
         }
         else
+            baselineSeedCount = 0;
+    }
+    else if (valid)
+    {
+        const float measuredLog2 = std::log2 (pitchHz);
+        // Isolated jumps larger than about 6.6 semitones are held for one
+        // frame; a consistent second estimate confirms a true pitch move.
+        if (previousPitchReady && std::abs (measuredLog2 - lastAcceptedLog2Hz) > 0.55f)
         {
-            // Isolated jumps larger than about 6.6 semitones are held for one
-            // frame; a consistent second estimate confirms a true pitch move.
-            if (previousPitchReady && std::abs (measuredLog2 - lastAcceptedLog2Hz) > 0.55f)
+            if (pendingJumpFrames == 0 || std::abs (measuredLog2 - pendingLog2Hz) > 0.12f)
             {
-                if (pendingJumpFrames == 0 || std::abs (measuredLog2 - pendingLog2Hz) > 0.12f)
-                {
-                    pendingLog2Hz = measuredLog2;
-                    pendingJumpFrames = 1;
-                    rejectOutlier = true;
-                }
-                else
-                {
-                    ++pendingJumpFrames;
-                    if (pendingJumpFrames < 2)
-                        rejectOutlier = true;
-                    else
-                    {
-                        pendingJumpFrames = 0;
-                        lastAcceptedLog2Hz = measuredLog2;
-                    }
-                }
+                pendingLog2Hz = measuredLog2;
+                pendingJumpFrames = 1;
+                rejectOutlier = true;
             }
             else
             {
-                pendingJumpFrames = 0;
-                lastAcceptedLog2Hz = measuredLog2;
+                ++pendingJumpFrames;
+                if (pendingJumpFrames < 2)
+                    rejectOutlier = true;
+                else
+                {
+                    pendingJumpFrames = 0;
+                    lastAcceptedLog2Hz = measuredLog2;
+                }
             }
+        }
+        else
+        {
+            pendingJumpFrames = 0;
+            lastAcceptedLog2Hz = measuredLog2;
+        }
 
-            if (! rejectOutlier)
-            {
-                // Follow the phrase's long-term register slowly; short rises,
-                // falls and vibrato remain visible as local deviations.
-                constexpr float baselineSeconds = 1.20f;
-                const float baselineAlpha = 1.0f - std::exp (-frameSeconds / baselineSeconds);
-                baselineLog2Hz += (measuredLog2 - baselineLog2Hz) * baselineAlpha;
-            }
+        if (! rejectOutlier)
+        {
+            // Follow the phrase's long-term register slowly; short rises,
+            // falls and vibrato remain visible as local deviations.
+            constexpr float baselineSeconds = 1.20f;
+            const float baselineAlpha = 1.0f - std::exp (-frameSeconds / baselineSeconds);
+            baselineLog2Hz += (measuredLog2 - baselineLog2Hz) * baselineAlpha;
         }
 
         if (rejectOutlier)

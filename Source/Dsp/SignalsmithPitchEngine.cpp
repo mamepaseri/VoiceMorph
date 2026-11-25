@@ -1,3 +1,4 @@
+Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
 #include "SignalsmithPitchEngine.h"
 
 #include <algorithm>
@@ -105,8 +106,9 @@ void SignalsmithPitchEngine::setParameters (float pitchSemitones,
 
     if (formantSemitones != lastFormantSemitones)
     {
-        // `false` keeps this as a direct, independent formant-envelope move.
-        stretch.setFormantSemitones (formantSemitones, false);
+        // Preserve the source envelope when pitch is transposed, then apply the
+        // independent Formant control relative to that stable envelope.
+        stretch.setFormantSemitones (formantSemitones, true);
         lastFormantSemitones = formantSemitones;
     }
 
@@ -145,7 +147,18 @@ bool SignalsmithPitchEngine::process (const float* const* input,
             std::copy_n (input[ch] + offset, count, in.data());
         }
 
-        stretch.process (inputPointers.data(), count, outputPointers.data(), count);
+        try
+        {
+            stretch.process (inputPointers.data(), count, outputPointers.data(), count);
+        }
+        catch (...)
+        {
+            // This is a third-party boundary inside a noexcept audio callback.
+            // Do not let a processing exception terminate the host: mark this
+            // adapter unavailable so HybridVoicePath can select its dry fallback.
+            prepared = false;
+            return false;
+        }
 
         for (int ch = 0; ch < channels; ++ch)
         {

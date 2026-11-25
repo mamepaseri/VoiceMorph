@@ -1,4 +1,13 @@
+Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
 # Changelog
+
+## 0.9.1 — 2026-11-25 — Experimental beta candidate
+
+- Prevented unshifted, low-confidence vocal residue from being blended back into fully wet output. Material the tracker cannot classify reliably now follows the pitch/formant transform; only explicitly classified breath, consonant, and transient detail can bypass it.
+- Enabled Signalsmith formant compensation so pitch transposition does not automatically move the vocal envelope with it. The Formant control remains independent for deliberate timbre changes.
+- Made Pitch Dynamics neutral by default and reduced its maximum contour expansion. The formant reference now waits for six consistent, high-confidence pitch frames instead of adopting an ambiguous startup estimate.
+- Added DSP regressions for the unshifted-residue leak at 100% Voice Mix, onset/tail routing, mix endpoints, and stable pitch/formant startup.
+- This candidate preserves the 0.9.0 editor. Synthetic tests cannot establish naturalness; listening in Live 12 and Sonar remains necessary.
 
 ## 0.9.0 — 2026-11-25 — Experimental beta
 

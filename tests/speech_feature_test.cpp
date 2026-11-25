@@ -1,3 +1,4 @@
+Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
 #include "../Source/Dsp/SpeechFeatureAnalyzer.h"
 #include "../Source/Dsp/PitchContourMapper.h"
 #include "../Source/Dsp/AdaptivePeriodicSplitter.h"
@@ -15,6 +16,7 @@
 #include <random>
 #include <string>
 #include <utility>
+#include <vector>
 
 namespace
 {
@@ -84,6 +86,30 @@ namespace
             }
             if (state.latency > 0)
                 state.writeIndex = (state.writeIndex + 1u) % static_cast<std::size_t> (state.latency);
+        }
+        return true;
+    }
+
+    struct ScaledTransform
+    {
+        float gain = 1.0f;
+    };
+
+    bool scaledTransform (void* context,
+                          const float* const* input,
+                          float* const* output,
+                          int channels,
+                          int numSamples) noexcept
+    {
+        if (context == nullptr || input == nullptr || output == nullptr || channels < 1 || channels > 2)
+            return false;
+        const float gain = static_cast<ScaledTransform*> (context)->gain;
+        for (int ch = 0; ch < channels; ++ch)
+        {
+            if (input[ch] == nullptr || output[ch] == nullptr)
+                return false;
+            for (int i = 0; i < numSamples; ++i)
+                output[ch][i] = input[ch][i] * gain;
         }
         return true;
     }
@@ -172,6 +198,8 @@ namespace
         result.success = true;
         return result;
     }
+
+
 #endif
 
 int main()
@@ -513,6 +541,43 @@ int main()
                    && fullBreathResidual.first < fullBreathResidual.second * 1.01,
                    "low-confidence fallback keeps full unvoiced energy with Breath Preserve at 100%");
 
+    // When voicing confidence is absent, source voice must be transformed,
+    // never sent through as an unpitched residual at 100% Voice Mix.
+    HybridVoicePath uncertainVoicePath;
+    ok &= require (uncertainVoicePath.prepare (1, sampleRate, 128, 0, 0),
+                   "uncertain-voice no-leak path prepares");
+    ScaledTransform noLeakTransform { 0.4f };
+    std::array<float, 128> uncertainInput {}, uncertainOutput {}, unknownPitch {}, unknownVoicing {}, unknownAperiodic {};
+    std::array<const float*, 1> uncertainInPointers { uncertainInput.data() };
+    std::array<float*, 1> uncertainOutPointers { uncertainOutput.data() };
+    double uncertainInputEnergy = 0.0;
+    double uncertainOutputEnergy = 0.0;
+    bool uncertainBlocksSucceeded = true;
+    for (int offset = 0; offset < 4096; offset += 128)
+    {
+        for (int i = 0; i < 128; ++i)
+        {
+            const float sample = 0.2f * static_cast<float> (std::sin (
+                2.0 * pi * 132.0 * static_cast<double> (offset + i) / sampleRate));
+            uncertainInput[static_cast<std::size_t> (i)] = sample;
+            if (offset + i >= 1024)
+                uncertainInputEnergy += static_cast<double> (sample) * sample;
+        }
+        uncertainBlocksSucceeded &= uncertainVoicePath.processBlock (
+            uncertainInPointers.data(), uncertainOutPointers.data(), 1, 128,
+            unknownPitch.data(), unknownVoicing.data(), unknownAperiodic.data(), 100.0f,
+            scaledTransform, &noLeakTransform, 0.0f, true, false);
+        if (offset >= 1024)
+            for (float sample : uncertainOutput)
+                uncertainOutputEnergy += static_cast<double> (sample) * sample;
+    }
+    ok &= require (uncertainBlocksSucceeded, "uncertain voiced onset is accepted at 100% Voice Mix");
+    const double uncertainOutputRatio = uncertainInputEnergy > 0.0
+        ? std::sqrt (uncertainOutputEnergy / uncertainInputEnergy) : 0.0;
+    ok &= require (uncertainOutputRatio > 0.38 && uncertainOutputRatio < 0.42,
+                   "low-confidence voiced audio follows the transform instead of leaking dry at 100% Voice Mix (gain ratio "
+                   + std::to_string (uncertainOutputRatio) + ")");
+
     // Reproduce stale pitch/voicing controls at a vowel-to-frication boundary.
     // Once the local one-period correlation rejects the new noise, the
     // confidence fallback must carry it through even though the analyzer still
@@ -558,8 +623,11 @@ int main()
             for (float sample : staleOutput)
                 fricationOutputEnergy += static_cast<double> (sample) * sample;
     }
-    ok &= require (fricationOutputEnergy > fricationInputEnergy * 0.70,
-                   "stale voiced controls cannot gate away a fricative after local periodicity falls");
+    const double fricationEnergyRatio = fricationInputEnergy > 0.0
+        ? fricationOutputEnergy / fricationInputEnergy : 0.0;
+    ok &= require (fricationEnergyRatio > 0.70,
+                   "stale voiced controls cannot gate away a fricative after local periodicity falls (energy ratio "
+                   + std::to_string (fricationEnergyRatio) + ")");
 
     // Alternating valid and missing F0 frames stress the pitch-confidence gate.
     // With no reliable pitch, the residual path should carry the original input
@@ -610,7 +678,7 @@ int main()
         std::array<const float*, 1> levelInPointers { levelInput.data() };
         std::array<float*, 1> levelOutPointers { levelOutput.data() };
         double levelInputEnergy = 0.0;
-        double outputEnergy = 0.0;
+        double levelOutputEnergy = 0.0;
         for (int offset = 0; offset < 8192; offset += 128)
         {
             for (int i = 0; i < 128; ++i)
@@ -628,10 +696,11 @@ int main()
                 {
                     const auto index = static_cast<std::size_t> (i);
                     levelInputEnergy += static_cast<double> (levelInput[index]) * levelInput[index];
-                    outputEnergy += static_cast<double> (levelOutput[index]) * levelOutput[index];
+                    levelOutputEnergy += static_cast<double> (levelOutput[index]) * levelOutput[index];
                 }
         }
-        const double levelRatio = levelInputEnergy > 0.0 ? std::sqrt (outputEnergy / levelInputEnergy) : 0.0;
+        const double levelRatio = levelInputEnergy > 0.0
+            ? std::sqrt (levelOutputEnergy / levelInputEnergy) : 0.0;
         ok &= require (prepared && levelRatio > 0.75 && levelRatio < 1.10,
                        "input amplitude " + std::to_string (amplitude)
                        + " retains output level without automatic gain correction (ratio "
@@ -692,11 +761,18 @@ int main()
     HybridVoicePath analyzedTransitionPath;
     ok &= require (analyzedTransitionPath.prepare (1, sampleRate, 128, 0, 0),
                    "analyzed transition path prepares");
+    HybridVoicePath analyzedScaledPath;
+    ok &= require (analyzedScaledPath.prepare (1, sampleRate, 128, 0, 0),
+                   "scaled analyzed transition path prepares");
     FixedDelayTransform analyzedIdentityTransform (0, 1);
+    ScaledTransform analyzedPitchTransform { 0.4f };
+    std::vector<float> scaledTransitionOutput (static_cast<std::size_t> (transitionLength), 0.0f);
     std::array<float, 128> analyzedInputBlock {}, analyzedOutputBlock {}, analyzedPitchBlock {},
                            analyzedVoicedBlock {}, analyzedAperiodicBlock {};
+    std::array<float, 128> scaledAnalyzedOutputBlock {};
     std::array<const float*, 1> analyzedInPointers { analyzedInputBlock.data() };
     std::array<float*, 1> analyzedOutPointers { analyzedOutputBlock.data() };
+    std::array<float*, 1> scaledAnalyzedOutPointers { scaledAnalyzedOutputBlock.data() };
     for (int offset = 0; offset < transitionLength; offset += 128)
     {
         const int count = std::min (128, transitionLength - offset);
@@ -715,8 +791,15 @@ int main()
                                              analyzedAperiodicBlock.data(), 100.0f,
                                              fixedDelayTransform, &analyzedIdentityTransform,
                                              65.0f, true, true);
+        analyzedScaledPath.processBlock (analyzedInPointers.data(), scaledAnalyzedOutPointers.data(), 1, count,
+                                         analyzedPitchBlock.data(), analyzedVoicedBlock.data(),
+                                         analyzedAperiodicBlock.data(), 100.0f,
+                                         scaledTransform, &analyzedPitchTransform,
+                                         65.0f, true, true);
         std::copy_n (analyzedOutputBlock.data(), count,
                      transitionOutput.data() + static_cast<std::size_t> (offset));
+        std::copy_n (scaledAnalyzedOutputBlock.data(), count,
+                     scaledTransitionOutput.data() + static_cast<std::size_t> (offset));
     }
     const auto rangeRms = [] (const std::vector<float>& values, int start, int end)
     {
@@ -732,6 +815,10 @@ int main()
                                      / rangeRms (transitionInput, fricativeStart + 720, fricativeStart + 1680);
     const double tailLevelRatio = rangeRms (transitionOutput, tailStart + 1200, tailStart + 2400)
                                 / rangeRms (transitionInput, tailStart + 1200, tailStart + 2400);
+    const double transformedOnsetRatio = rangeRms (scaledTransitionOutput, onsetStart + 480, onsetStart + 1248)
+                                       / rangeRms (transitionInput, onsetStart + 480, onsetStart + 1248);
+    const double transformedTailRatio = rangeRms (scaledTransitionOutput, tailStart + 1200, tailStart + 2400)
+                                      / rangeRms (transitionInput, tailStart + 1200, tailStart + 2400);
     ok &= require (onsetLevelRatio > 0.90,
                    "quiet vowel onset retains level while the analyzer fills its pitch window (ratio "
                    + std::to_string (onsetLevelRatio) + ")");
@@ -741,6 +828,12 @@ int main()
     ok &= require (tailLevelRatio > 0.60,
                    "a fading vowel tail remains audible as pitch confidence releases (ratio "
                    + std::to_string (tailLevelRatio) + ")");
+    ok &= require (transformedOnsetRatio > 0.30 && transformedOnsetRatio < 0.80,
+                   "analyzed vowel onset is neither dropped nor passed through mostly dry at 100% Voice Mix (ratio "
+                   + std::to_string (transformedOnsetRatio) + ")");
+    ok &= require (transformedTailRatio > 0.30 && transformedTailRatio < 0.80,
+                   "analyzed vowel tail is neither dropped nor passed through mostly dry at 100% Voice Mix (ratio "
+                   + std::to_string (transformedTailRatio) + ")");
 
     // Neutral processing should not create a gain dip at any Voice Mix setting.
     for (int mixPercent = 0; mixPercent <= 100; mixPercent += 20)
@@ -1040,6 +1133,7 @@ int main()
     ok &= require (deterministicOutput,
                    "Signalsmith output repeats deterministically for the same synthetic voice and settings");
 
+
     if (finiteOutput)
     {
         const int measureStart = static_cast<int> (sampleRate * 0.25);
@@ -1152,14 +1246,31 @@ int main()
         dynamicsFull.processFrame (220.0f, 1.0f);
     }
     ok &= require (std::abs (dynamicsNeutral.getExpansionRatio() - 1.0f) < 1.0e-6f
-                   && std::abs (dynamicsFull.getExpansionRatio() - 1.45f) < 1.0e-6f,
-                   "Pitch Dynamics maps 0% to neutral and 100% to a bounded 1.45x contour expansion");
+                   && std::abs (dynamicsFull.getExpansionRatio() - 1.25f) < 1.0e-6f,
+                   "Pitch Dynamics maps 0% to neutral and 100% to a bounded 1.25x contour expansion");
+
+    PitchContourMapper onsetBaseGuard;
+    onsetBaseGuard.prepare (sampleRate);
+    onsetBaseGuard.setDynamicsPercent (100.0f);
+    for (int frame = 0; frame < 4; ++frame)
+        onsetBaseGuard.processFrame (330.0f, 0.35f);
+    for (int frame = 0; frame < 6; ++frame)
+        onsetBaseGuard.processFrame (165.0f, 0.90f);
+    const float offsetAfterStableSeed = onsetBaseGuard.getOffsetSemitones();
+    const float stableBaselineHz = onsetBaseGuard.getBaselinePitchHz();
+    for (int frame = 0; frame < 20; ++frame)
+        onsetBaseGuard.processFrame (196.0f, 0.90f);
+    ok &= require (std::abs (offsetAfterStableSeed) < 0.02f
+                   && std::abs (stableBaselineHz - 165.0f) < 0.05f
+                   && onsetBaseGuard.getOffsetSemitones() > 0.30f,
+                   "low-confidence startup pitch is ignored before the stable pitch and formant reference is seeded");
 
     for (int frame = 0; frame < 30; ++frame)
         dynamicsFull.processFrame (277.18f, 1.0f);
-    ok &= require (dynamicsFull.getOffsetSemitones() > 1.0f
-                   && dynamicsFull.getOffsetSemitones() < 4.0f,
-                   "Pitch Dynamics follows an upward voiced F0 movement with a smooth positive offset");
+    ok &= require (dynamicsFull.getOffsetSemitones() > 0.50f
+                   && dynamicsFull.getOffsetSemitones() < 2.0f,
+                   "Pitch Dynamics follows an upward voiced F0 movement with a bounded smooth offset ("
+                   + std::to_string (dynamicsFull.getOffsetSemitones()) + " semitones)");
 
     PitchContourMapper octaveGuard;
     octaveGuard.prepare (sampleRate);
@@ -1221,7 +1332,7 @@ int main()
     const float offsetBeforeUnvoiced = unvoicedRelease.getOffsetSemitones();
     for (int frame = 0; frame < 30; ++frame)
         unvoicedRelease.processFrame (0.0f, 0.0f);
-    ok &= require (offsetBeforeUnvoiced > 0.8f
+    ok &= require (offsetBeforeUnvoiced > 0.50f
                    && std::abs (unvoicedRelease.getOffsetSemitones()) < 0.20f,
                    "Pitch Dynamics smoothly releases back to neutral in unvoiced gaps");
 

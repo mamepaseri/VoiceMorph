@@ -1,3 +1,4 @@
+Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "ParameterMapping.h"
@@ -56,7 +57,7 @@ VoiceMorphAudioProcessor::APVTS::ParameterLayout VoiceMorphAudioProcessor::creat
     layout.add (std::make_unique<Float> (juce::ParameterID { "formantSemitones", 1 }, "Formant",
         juce::NormalisableRange<float> (-6.0f, 6.0f, 0.01f), 0.0f));
     layout.add (std::make_unique<Float> (juce::ParameterID { "pitchDynamics", 1 }, "Pitch Dynamics",
-        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 75.0f));
+        juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 0.0f));
     layout.add (std::make_unique<Float> (juce::ParameterID { "tracking", 1 }, "Tracking",
         juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 70.0f));
     layout.add (std::make_unique<Float> (juce::ParameterID { "breathPreserve", 1 }, "Breath Preserve",
@@ -170,7 +171,7 @@ void VoiceMorphAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
     const float inputGain = juce::Decibels::decibelsToGain (readParam (apvts, "inputGain", 0.0f));
     const float outputGain = juce::Decibels::decibelsToGain (readParam (apvts, "outputGain", 0.0f));
     const float pitchSemitones = readParam (apvts, "pitchSemitones", 0.0f);
-    const float pitchDynamics = readParam (apvts, "pitchDynamics", 75.0f);
+    const float pitchDynamics = readParam (apvts, "pitchDynamics", 0.0f);
     const float formantSemitones = readParam (apvts, "formantSemitones", 0.0f);
     const float voiceMix = readParam (apvts, "voiceMix", 100.0f);
     const float breathPreserve = readParam (apvts, "breathPreserve", 65.0f);
@@ -270,7 +271,7 @@ void VoiceMorphAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, j
         // Formant base follows the smoothed live F0 estimate, with a stable neutral
         // value during silence/unvoiced regions. The splitter itself still gates
         // those regions out of the transformed periodic stem.
-        const float trackedPitch = speechAnalyzer.getFeatures().pitchHz;
+        const float trackedPitch = pitchContourMapper.getBaselinePitchHz();
         const float formantBase = trackedPitch >= 65.0f && trackedPitch <= 450.0f ? trackedPitch : 140.0f;
         hybridVoiceEngine.setParameters (pitchSemitones + currentPitchDynamicsOffset,
                                          formantSemitones, formantBase);
