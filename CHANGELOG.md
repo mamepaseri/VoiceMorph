@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.9.1 — 2026-11-26 — Experimental beta
+
+- Corrected the accent from cyan to amber/orange across the dashboard UI while retaining the dark graphite/chrome and light aluminum themes.
+- Reduced the default editor size from 1220 × 810 to 1100 × 730; the editor remains resizable with a 980 × 640 minimum.
+- No DSP or audio-routing changes. The smaller editor window reduces screen footprint, not audio CPU consumption.
+
 ## 0.9.0 — 2026-11-25 — Experimental beta
 
 - Carries forward the 0.8.8 metallic dashboard redesign as the 0.9.0 visual baseline.

@@ -1,6 +1,14 @@
-# Build / validation status — 2026-11-25 — Prototype 0.9.0
+# Build / validation status — 2026-11-26 — Prototype 0.9.1
 
-## 0.9.0 release-candidate validation
+## 0.9.1 candidate
+
+- Corrects the dashboard accent to orange and reduces the default editor resolution from 1220 × 810 to 1100 × 730. Existing resize limits remain 980 × 640 minimum and 1600 × 1060 maximum.
+- This is based on 0.9.0 and does not change DSP behavior.
+- Windows x64 VST3 build and installer smoke tests are pending for this candidate. Sonar visual/runtime behavior is not established here.
+
+## 0.9.0 validation record
+
+
 
 - Candidate commit `66af72965ac306cf426ea1e555f03ee36bc2db73` passed [Linux DSP CI](https://github.com/mamepaseri/VoiceMorph/actions/runs/45607489184), including strict warnings, ASan/UBSan, and Signalsmith-enabled synthetic quality checks.
 - The same candidate passed [Windows x64 VST3 CI](https://github.com/mamepaseri/VoiceMorph/actions/runs/45607489381) with Signalsmith ON and OFF; both artifacts were uploaded.
